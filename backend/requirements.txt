@@ -1,0 +1,11 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+python-dotenv==1.0.1
+anthropic==0.40.0
+httpx==0.27.2
+supabase==2.10.0
+dnspython==2.7.0
+python-whois==0.9.5
+tldextract==5.1.3
+beautifulsoup4==4.12.3

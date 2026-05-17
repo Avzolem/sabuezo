@@ -1,0 +1,152 @@
+[
+  {
+    "category": "Suplantación SAT",
+    "text": "ATENCIÓN: El SAT ha detectado inconsistencias en tu RFC. Tu Buzón Tributario será suspendido en 24 horas. Ingresa aquí para evitar la cancelación: http://sat-gob-mx.verificacion.com/login",
+    "risk": "rojo"
+  },
+  {
+    "category": "Suplantación SAT",
+    "text": "Notificación oficial del SAT: Factura CFDI cancelada por autoridad. Descarga el comprobante: bit.ly/cfdi-mx-pendiente",
+    "risk": "rojo"
+  },
+  {
+    "category": "Suplantación BBVA",
+    "text": "BBVA: Detectamos un acceso sospechoso a tu cuenta desde Bogotá. Si no fuiste tú, ingresa de inmediato a http://bbva-segurid4d.com/verifica",
+    "risk": "rojo"
+  },
+  {
+    "category": "Suplantación BBVA",
+    "text": "Estimado cliente BBVA, tu token será desactivado hoy. Confirma tus datos para mantener acceso: bbvanetcash-mx.com",
+    "risk": "rojo"
+  },
+  {
+    "category": "Suplantación Citibanamex",
+    "text": "Citibanamex te informa que tu cuenta presenta movimientos no reconocidos por $48,950 MXN. Para reversar la operación: banamexmx-soporte.com/cancelar",
+    "risk": "rojo"
+  },
+  {
+    "category": "Suplantación Santander",
+    "text": "Santander México: Su tarjeta fue bloqueada por seguridad. Llame al 55-XXXX-XXXX o ingrese a santander-mxsegur.com",
+    "risk": "rojo"
+  },
+  {
+    "category": "Fraude del proveedor (BEC)",
+    "text": "Hola, te escribo del corporativo. Cambiamos de cuenta bancaria por temas de auditoría. A partir de hoy depositen a Banorte clabe 0721800000XXXXXXXX a nombre de Soluciones Integrales SA de CV. Confirma de recibido.",
+    "risk": "rojo"
+  },
+  {
+    "category": "CEO fraud",
+    "text": "Soy [nombre del director general]. Estoy en una junta y no puedo hablar. Necesito que hagas urgente una transferencia de $85,000 a este número de cuenta antes de las 2pm. Confirma cuando esté hecho. No comentes con nadie.",
+    "risk": "rojo"
+  },
+  {
+    "category": "Robo de WhatsApp",
+    "text": "Hola, me equivoqué de número y me llegó un código a tu WhatsApp. ¿Me lo puedes pasar porfa? Es de 6 dígitos. Gracias 🙏",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falsa oferta de trabajo",
+    "text": "Felicidades, tu CV fue preseleccionado por TELMEX para puesto remoto con sueldo de $25,000 quincenales. Solo necesitamos confirmar tu identidad. Manda copia de INE por ambos lados.",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falso premio",
+    "text": "FELICIDADES! Ganaste un premio de Mercado Libre por ser cliente frecuente. Reclama tu iPhone 15 aquí: meli-premios.click/ganador",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falsa paquetería",
+    "text": "DHL: Su paquete está retenido en aduana. Pague $48 MXN de tarifa pendiente para liberarlo: dhl-mxenvios.com/pago",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falsa paquetería",
+    "text": "Mercado Libre: Tu pedido no pudo ser entregado. Confirma tu dirección y paga $19 de reenvío: meli-envios.link",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falso cobro CFE",
+    "text": "CFE: Su servicio será cortado mañana por adeudo de $1,847. Pague aquí para evitarlo: cfe-pago.online",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falso Telmex",
+    "text": "Telmex: Su línea presenta adeudo de $2,300. Para mantener el servicio realice el pago en telmex-portal.xyz antes de las 23:59 hoy.",
+    "risk": "rojo"
+  },
+  {
+    "category": "Secuestro virtual",
+    "text": "Tenemos a tu hijo. No cuelgues. Si avisas a alguien lo matamos. Necesitamos que vayas al banco AHORA y mandes $50,000 a la cuenta que te voy a dictar.",
+    "risk": "rojo"
+  },
+  {
+    "category": "Extorsión empresarial",
+    "text": "Sabemos donde está tu negocio. Tienes 12 horas para depositar 80mil pesos o vamos por ti y tu familia. No avises a la policía. Cuenta: 4152XXXXXXXXXXX",
+    "risk": "rojo"
+  },
+  {
+    "category": "Cripto pump",
+    "text": "Te invito a un grupo VIP de trading donde te enseño cómo gano 30% mensual con bitcoin. Garantizado. ¿Te paso el link?",
+    "risk": "rojo"
+  },
+  {
+    "category": "Romance scam",
+    "text": "Hola guapo, te vi en Facebook y me pareciste interesante. Soy enfermera y trabajo en una plataforma petrolera. ¿Podemos ser amigos?",
+    "risk": "rojo"
+  },
+  {
+    "category": "Phishing OTP",
+    "text": "Por favor compárteme el código de 6 dígitos que te acaba de llegar por SMS, es para validar que tu cuenta sigue activa.",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falso Buzón Tributario",
+    "text": "SAT - Buzón Tributario: Tiene un nuevo requerimiento pendiente con vencimiento hoy. Acceda con su e.firma en sat.requerimientos-mx.com",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falsa factura cliente",
+    "text": "Buen día, le adjunto la orden de compra para que nos facture. Por favor descargue el PDF y firme aquí: ordendecompra-empresa.com.zip",
+    "risk": "rojo"
+  },
+  {
+    "category": "Falsa transferencia recibida",
+    "text": "Le hicimos la transferencia hoy pero rebotó. ¿Puede verificar su CLABE? Le envío comprobante: ver-comprobante.online",
+    "risk": "rojo"
+  },
+  {
+    "category": "Inversión falsa",
+    "text": "Estoy invirtiendo en una plataforma que da 5% diario, mi tía lleva 3 meses y ya recuperó su capital. Te paso el contacto del asesor.",
+    "risk": "rojo"
+  },
+  {
+    "category": "Suplantación Banorte",
+    "text": "Banorte: alerta de seguridad. Confirme su NIP en este enlace para evitar el bloqueo de su tarjeta: banorte-token.click",
+    "risk": "rojo"
+  },
+  {
+    "category": "Mensaje legítimo",
+    "text": "Hola Andrés, te confirmo la reunión de mañana a las 4pm en la oficina. Saludos.",
+    "risk": "verde"
+  },
+  {
+    "category": "Mensaje legítimo",
+    "text": "Buenas tardes, le envío la cotización solicitada por correo. Cualquier duda quedo atento.",
+    "risk": "verde"
+  },
+  {
+    "category": "Mensaje legítimo",
+    "text": "Hola, ¿podemos avanzar con la orden de compra? Adjunto el formato firmado por nuestro lado.",
+    "risk": "verde"
+  },
+  {
+    "category": "Mensaje legítimo",
+    "text": "Tu pedido #4823 fue entregado. Gracias por comprar en nuestra tienda.",
+    "risk": "verde"
+  },
+  {
+    "category": "Mensaje legítimo",
+    "text": "Recordatorio: el pago de tu suscripción se renovará el día 15. Si tienes dudas, contáctanos en soporte@nuestra-empresa.com",
+    "risk": "verde"
+  }
+]
