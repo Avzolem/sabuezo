@@ -92,6 +92,7 @@ export default async function HomePage() {
               <Link href="/filtraciones" className="hover:text-white transition">Filtraciones</Link>
               <a href="#como-funciona" className="hover:text-white transition">¿Cómo funciona?</a>
               <a href="#por-que" className="hover:text-white transition">¿Por qué?</a>
+              <Link href="/pitch" className="hover:text-white transition">Pitch</Link>
             </nav>
             <a
               href={waNumber ? `https://wa.me/${waNumber}?text=hola` : "#"}

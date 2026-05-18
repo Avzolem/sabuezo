@@ -106,6 +106,19 @@ def make_favicon():
     print(f"✓ icon.png 512x512")
 
 
+def make_favicon_ico():
+    """favicon.ico — multi-tamaño (16/24/32/48/64/128/256)."""
+    silhouette = extract_amber_transparent(SRC)
+    silhouette = crop_to_content(silhouette, padding=30)
+    base = square_canvas(silhouette, 256, transparent=True)
+    base.save(
+        APP / "favicon.ico",
+        format="ICO",
+        sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+    )
+    print(f"✓ favicon.ico multi-size")
+
+
 def make_apple_icon():
     """apple-icon.png — 180x180 con fondo oscuro."""
     silhouette = extract_amber_transparent(SRC)
@@ -196,6 +209,7 @@ if __name__ == "__main__":
         raise SystemExit(f"No existe {SRC}")
     make_site_logo()
     make_favicon()
+    make_favicon_ico()
     make_apple_icon()
     make_og_image()
     print("\n✅ Assets generados con v3.")
