@@ -84,7 +84,7 @@ export default async function PymePage({ params }: Props) {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 sm:py-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition">
             <ArrowLeft className="size-4 text-zinc-500" />
-            <Image src="/sabuezo-logo.png" alt="Sabuezo" width={28} height={28} className="size-7" />
+            <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={28} height={28} className="size-7" />
             <span className="font-semibold">Sabuezo</span>
           </Link>
           <div className="text-xs text-zinc-500">Dashboard PyME</div>
@@ -207,7 +207,7 @@ export default async function PymePage({ params }: Props) {
         </section>
 
         <footer className="pt-8 pb-12 text-center text-sm text-zinc-500 border-t border-zinc-900 flex items-center justify-center gap-2">
-          <Image src="/sabuezo-logo.png" alt="" width={20} height={20} className="size-5 opacity-70" />
+          <Image src="/sabuezo-logo.webp" alt="" width={20} height={20} className="size-5 opacity-70" />
           <span>Sabuezo · Esta vista es pública. Cualquiera con el link puede verla.</span>
         </footer>
       </div>

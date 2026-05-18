@@ -388,15 +388,17 @@ def _build_findings(url: str, domain: str, ssl_r: dict, hdr: dict, mail: dict, c
 
     # --- Edad de dominio (informativo) ---
     age_days = age.get("age_days")
-    if age_days is not None and age_days < 90:
-        findings.append({
-            "id": "domain_new",
-            "severity": "info",
-            "title": f"Tu dominio tiene solo {age_days} días de antigüedad",
-            "description": "Los dominios muy nuevos a veces se filtran como spam. Si recibes quejas, conserva el dominio actual a largo plazo para construir reputación.",
-            "fix": "Configura SPF/DKIM/DMARC correctamente y envía correos consistentes desde el mismo dominio.",
-            "fix_time_min": 0,
-        })
+    if age_days is not None:
+        age_days = max(0, age_days)  # clamp por race UTC
+        if age_days < 90:
+            findings.append({
+                "id": "domain_new",
+                "severity": "info",
+                "title": f"Tu dominio tiene solo {age_days} días de antigüedad" if age_days > 0 else "Tu dominio fue registrado hoy",
+                "description": "Los dominios muy nuevos a veces se filtran como spam. Si recibes quejas, conserva el dominio actual a largo plazo para construir reputación.",
+                "fix": "Configura SPF/DKIM/DMARC correctamente y envía correos consistentes desde el mismo dominio.",
+                "fix_time_min": 0,
+            })
 
     return findings
 

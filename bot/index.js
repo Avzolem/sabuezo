@@ -13,6 +13,7 @@ const axios = require('axios');
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8787';
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN || 'dev-token';
+const PUBLIC_URL = process.env.PUBLIC_URL || 'https://sabuezo.com';
 const AUTH_DIR = './auth';
 
 const logger = pino({ level: 'warn' });
@@ -89,7 +90,7 @@ function formatScanResult(scan) {
     out += `🪄 *Insight clave:* Tu dominio no protege tu correo (${noSpf ? 'SPF' : 'DMARC'} ausente). Esto explica por qué tus empleados reciben tanto phishing pretendiendo ser de tu empresa.\n\n`;
   }
 
-  out += `_Soy Sabuezo 🐕 — protegiendo PyMEs mexicanas._`;
+  out += `_Soy Sabuezo 🐕 — democratizando la ciberseguridad para LATAM._`;
   return out;
 }
 
@@ -132,7 +133,7 @@ function parseRegistration(text) {
 function formatReply(result) {
   if (!result) return '⚠️ No pude analizar el mensaje. Inténtalo de nuevo.';
 
-  const { risk, category, explanation, red_flags = [], recommended_action } = result;
+  const { risk, category, explanation, red_flags = [], recommended_action, cross_insight } = result;
   const emoji = risk === 'rojo' ? '🔴' : risk === 'amarillo' ? '🟡' : '🟢';
   const label =
     risk === 'rojo'
@@ -150,7 +151,116 @@ function formatReply(result) {
     out += `\n`;
   }
   if (recommended_action) out += `👉 *Qué hacer:* ${recommended_action}\n`;
-  out += `\n_Soy Sabuezo 🐕 — protegiendo PyMEs mexicanas._`;
+  if (cross_insight?.message) {
+    out += `\n🪄 *Insight de tu dominio:*\n${cross_insight.message}\n`;
+    out += `Escribe *reporte* para ver tu diagnóstico de seguridad.\n`;
+  }
+  out += `\n_Soy Sabuezo 🐕 — democratizando la ciberseguridad para LATAM._`;
+  return out;
+}
+
+function formatFullReport(scan) {
+  const { score, summary, findings = [], domain } = scan;
+  const scoreEmoji = score >= 85 ? '🟢' : score >= 65 ? '🟡' : score >= 40 ? '🟠' : '🔴';
+
+  let out = `🐕 *Reporte completo — ${domain}*\n\n`;
+  out += `${scoreEmoji} *Score: ${score}/100*\n_${summary}_\n\n`;
+
+  if (findings.length === 0) {
+    out += `✅ Sin hallazgos. Tu sitio está bien protegido.\n`;
+    return out;
+  }
+
+  const order = ['critical', 'high', 'medium', 'low', 'info'];
+  const labels = { critical: 'Crítico', high: 'Alto', medium: 'Medio', low: 'Bajo', info: 'Informativo' };
+
+  for (const sev of order) {
+    const items = findings.filter(f => f.severity === sev);
+    if (items.length === 0) continue;
+    out += `*${SEV_EMOJI[sev]} ${labels[sev]} (${items.length})*\n\n`;
+    for (const f of items) {
+      out += `• *${f.title}*\n${f.description}\n💡 _Cómo arreglarlo (${f.fix_time_min} min):_\n${f.fix}\n\n`;
+    }
+  }
+  return out;
+}
+
+function helpMessage() {
+  return (
+    `🐕 *Sabuezo — Guía rápida*\n\n` +
+    `Cosas que puedo hacer:\n\n` +
+    `🔍 *Análisis anti-estafa*\n` +
+    `Reenvíame cualquier mensaje, link o screenshot sospechoso. ` +
+    `Te digo en segundos si es phishing.\n\n` +
+    `🏢 *registrar* — Vincula tu PyME y escaneo tu sitio web.\n` +
+    `📋 *reporte* — Reporte completo de seguridad de tu sitio.\n` +
+    `📊 *dashboard* — Link a tu panel ejecutivo.\n` +
+    `📧 *correo <email>* — ¿Tu correo está en una filtración?\n` +
+    `📱 *numero <tel>* — ¿Tu número está en una filtración?\n` +
+    `❌ *cancelar* — Cancela el flujo actual.\n` +
+    `❓ *ayuda* — Vuelve a mostrar esta guía.\n\n` +
+    `_Tip: también puedes mandarme directamente un correo o número y lo reviso._`
+  );
+}
+
+function formatEmailBreach(email, data) {
+  if (!data.ok) {
+    return `⚠️ No pude verificar *${email}* ahora mismo. Intenta en un momento.`;
+  }
+  if (!data.found) {
+    return (
+      `🟢 *${email}*\n\n` +
+      `Buenas noticias: no aparece en filtraciones públicas conocidas.\n\n` +
+      `Esto _no_ garantiza que esté 100% seguro — los criminales también usan listas privadas. ` +
+      `Pero si tu correo no está en breaches públicos, tienes mucho menos spam y phishing dirigido.\n\n` +
+      `👉 Mantén tu contraseña única para este correo y activa 2FA donde puedas.`
+    );
+  }
+  const top = (data.breaches || []).slice(0, 6);
+  let out = `🔴 *${email} está en ${data.count} filtración${data.count === 1 ? '' : 'es'}*\n\n`;
+  out += `Aparece en estos breaches públicos:\n`;
+  for (const b of top) out += `• ${b}\n`;
+  if (data.count > top.length) out += `_…y ${data.count - top.length} más._\n`;
+  out += `\n*Qué hacer ahora mismo:*\n`;
+  out += `1️⃣ Cambia la contraseña de este correo y de cualquier servicio donde uses la misma.\n`;
+  out += `2️⃣ Activa autenticación de dos pasos (2FA) en tu correo.\n`;
+  out += `3️⃣ Espera más phishing dirigido — los criminales ya tienen tu dirección.\n`;
+  out += `4️⃣ Si reciben "factura de proveedor" desde un correo parecido al tuyo, asume estafa.\n`;
+  return out;
+}
+
+function formatPhoneBreach(phone, data) {
+  if (!data.ok) {
+    if (data.error === 'rate_limited') {
+      return `⏳ Demasiadas consultas a la base de filtraciones. Inténtalo en 1-2 minutos.`;
+    }
+    return `⚠️ No pude verificar *${phone}* ahora mismo. Intenta en un momento.`;
+  }
+  if (!data.found) {
+    return (
+      `🟢 *${phone}*\n\n` +
+      `No aparece en filtraciones públicas conocidas.\n\n` +
+      `Mantente atento a llamadas y SMS desconocidos. Si alguien se hace pasar por banco/SAT, ` +
+      `cuelga y márcale tú al número oficial — nunca al que te llamó.`
+    );
+  }
+  const top = (data.sources || []).slice(0, 6);
+  const fields = (data.fields || []).slice(0, 8).join(', ');
+  let out = `🔴 *${phone} está en ${data.count} fuga${data.count === 1 ? '' : 's'} de datos*\n\n`;
+  if (top.length) {
+    out += `Fuentes (las primeras):\n`;
+    for (const s of top) {
+      const dateStr = s.date ? ` (${s.date})` : '';
+      out += `• ${s.name}${dateStr}\n`;
+    }
+    if (data.count > top.length) out += `_…y ${data.count - top.length} más._\n`;
+  }
+  if (fields) out += `\n*Datos expuestos junto a tu número:* ${fields}\n`;
+  out += `\n*Qué hacer ahora:*\n`;
+  out += `1️⃣ Asume que cualquier llamada o SMS de "tu banco" o "el SAT" puede ser estafa dirigida.\n`;
+  out += `2️⃣ Nunca des códigos de WhatsApp/SMS por teléfono, _nunca_.\n`;
+  out += `3️⃣ Activa 2FA en tu correo y banca (de preferencia con app, no SMS).\n`;
+  out += `4️⃣ Si recibes mensajes de "secuestro virtual", cuelga y verifica directamente.\n`;
   return out;
 }
 
@@ -180,15 +290,140 @@ async function handleMessage(sock, msg) {
       await sendSafe(sock, jid, {
         text:
           `🐕 *Hola, soy Sabuezo*\n\n` +
-          `Soy el guardián anti-estafa de tu PyME. Reenvíame:\n\n` +
-          `• Mensajes sospechosos (texto)\n` +
-          `• Screenshots de WhatsApp o correos\n` +
-          `• Links que te preocupen\n\n` +
-          `Te diré en segundos si es estafa.\n\n` +
-          `Escribe *registrar* para vincular tu empresa y escanear tu sitio web.`,
+          `Soy el guardián anti-estafa de las PyMEs de LATAM. *No soy un chat* — soy un detector. Reenvíame solo cosas sospechosas.\n\n` +
+          `*📩 Ejemplos de lo que detecto:*\n\n` +
+          `🏛️ _"Su factura del SAT está vencida, pague aquí: bit.ly/sat-pago..."_\n\n` +
+          `🏦 _"BBVA: detectamos actividad sospechosa, verifica tu cuenta..."_\n\n` +
+          `📦 _"Soy el nuevo proveedor, te paso mi nueva CLABE para el depósito..."_\n\n` +
+          `📞 _"Tu hijo está secuestrado, deposita ya o..."_\n\n` +
+          `🖼️ Screenshots de mensajes o correos raros que recibiste.\n\n` +
+          `*Comandos rápidos:*\n` +
+          `• *registrar* — Vincula tu PyME y escanea tu sitio\n` +
+          `• *correo tucorreo@dominio.com* — Revisa si está filtrado\n` +
+          `• *numero 5512345678* — Revisa si tu número fue filtrado\n` +
+          `• *ayuda* — Ver todos mis comandos`,
       }, 'welcome');
       return;
     }
+    if (lower === 'ayuda' || lower === 'help' || lower === 'menu' || lower === 'menú') {
+      await sendSafe(sock, jid, { text: helpMessage() }, 'help');
+      return;
+    }
+    if (lower === 'reporte' || lower === 'report') {
+      try {
+        const r = await api.get(`/pyme/by-jid/${encodeURIComponent(jid)}/last-scan`);
+        if (!r.data.ok || !r.data.scan) {
+          await sendSafe(sock, jid, {
+            text:
+              `Aún no tengo un escaneo de tu sitio. Escribe *registrar* para vincular tu PyME y escanear tu web.`,
+          }, 'report-empty');
+          return;
+        }
+        const reply = formatFullReport(r.data.scan);
+        await sendSafe(sock, jid, { text: reply }, 'report-full');
+        const pymeId = r.data.pyme?.id;
+        if (pymeId) {
+          await sendSafe(sock, jid, {
+            text: `📊 Panel ejecutivo: ${PUBLIC_URL}/p/${pymeId}`,
+          }, 'report-dashboard');
+        }
+      } catch (err) {
+        console.error('Report error:', err?.response?.data || err.message);
+        await sendSafe(sock, jid, {
+          text: `⚠️ No pude traer tu reporte. Intenta de nuevo en un momento.`,
+        }, 'report-error');
+      }
+      return;
+    }
+    if (lower === 'dashboard' || lower === 'panel') {
+      try {
+        const r = await api.get(`/pyme/by-jid/${encodeURIComponent(jid)}/last-scan`);
+        const pymeId = r.data.ok ? r.data.pyme?.id : null;
+        if (!pymeId) {
+          await sendSafe(sock, jid, {
+            text: `Aún no estás registrado. Escribe *registrar* para crear tu panel.`,
+          }, 'dashboard-empty');
+          return;
+        }
+        await sendSafe(sock, jid, {
+          text: `📊 *Tu panel ejecutivo*\n\n${PUBLIC_URL}/p/${pymeId}\n\nAhí puedes ver tus escaneos, hallazgos y el histórico.`,
+        }, 'dashboard-link');
+      } catch (err) {
+        console.error('Dashboard error:', err?.response?.data || err.message);
+        await sendSafe(sock, jid, {
+          text: `⚠️ No pude traer tu panel. Intenta de nuevo en un momento.`,
+        }, 'dashboard-error');
+      }
+      return;
+    }
+    // ─────────────── Chequeo de filtraciones ───────────────
+    // Si el usuario está en flujo de registro, saltamos esto para no desviar
+    // su email/teléfono al chequeo de breaches.
+    const inRegistration = registrationState.get(jid) === 'awaiting';
+    const emailInText = inRegistration ? null : text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    const phoneInText = inRegistration ? null : text.match(/(?:\+?\d[\d\s().-]{8,16}\d)/);
+    const textIsOnlyEmail = !!emailInText && text.trim() === emailInText[0];
+    const textIsOnlyPhone =
+      !!phoneInText && text.trim() === phoneInText[0] && /\d{8,}/.test(text.replace(/\D/g, ''));
+
+    const correoCmd = inRegistration ? null : lower.match(/^(?:correo|email|mail)\s+(.+)$/i);
+    const numeroCmd = inRegistration ? null : lower.match(/^(?:numero|número|tel|telefono|teléfono|celular)\s+(.+)$/i);
+    const bareCorreo = !inRegistration && (lower === 'correo' || lower === 'email' || lower === 'mail');
+    const bareNumero = !inRegistration && (
+      lower === 'numero' || lower === 'número' || lower === 'tel' ||
+      lower === 'telefono' || lower === 'teléfono' || lower === 'celular');
+
+    async function ownerEmailFromPyme() {
+      try {
+        const r = await api.get(`/pyme/by-jid/${encodeURIComponent(jid)}/last-scan`);
+        return r.data.ok ? (r.data.pyme?.owner_email || null) : null;
+      } catch { return null; }
+    }
+
+    if (correoCmd || (bareCorreo) || textIsOnlyEmail) {
+      let target = correoCmd ? correoCmd[1].trim() : (textIsOnlyEmail ? emailInText[0] : null);
+      if (!target && bareCorreo) target = await ownerEmailFromPyme();
+      if (!target) {
+        await sendSafe(sock, jid, {
+          text: `Mándame el correo así: *correo tucorreo@ejemplo.com* — o regístrate primero con *registrar* y lo recuerdo.`,
+        }, 'breach-email-missing');
+        return;
+      }
+      await sendSafe(sock, jid, { text: `🔍 Buscando *${target}* en filtraciones públicas…` }, 'breach-email-start');
+      try {
+        const r = await api.post('/check/email', { user_id: jid, value: target });
+        await sendSafe(sock, jid, { text: formatEmailBreach(target, r.data) }, 'breach-email-result');
+      } catch (err) {
+        console.error('Email check error:', err?.response?.data || err.message);
+        await sendSafe(sock, jid, { text: `⚠️ No pude verificar el correo. Intenta de nuevo en un momento.` }, 'breach-email-error');
+      }
+      return;
+    }
+
+    if (numeroCmd || bareNumero || textIsOnlyPhone) {
+      let target = numeroCmd ? numeroCmd[1].trim() : (textIsOnlyPhone ? phoneInText[0] : null);
+      if (!target && bareNumero) {
+        // Si no dio número, usamos el JID (WhatsApp ya es un número)
+        target = jid.replace(/@.*$/, '').replace(/[^0-9]/g, '');
+      }
+      if (!target) {
+        await sendSafe(sock, jid, {
+          text: `Mándame el número así: *numero 5512345678* — incluye lada internacional si no es México (+52, +57, +54, +56, +51, +593…).`,
+        }, 'breach-phone-missing');
+        return;
+      }
+      await sendSafe(sock, jid, { text: `🔍 Buscando *${target}* en filtraciones públicas…` }, 'breach-phone-start');
+      try {
+        const r = await api.post('/check/phone', { user_id: jid, value: target });
+        await sendSafe(sock, jid, { text: formatPhoneBreach(target, r.data) }, 'breach-phone-result');
+      } catch (err) {
+        console.error('Phone check error:', err?.response?.data || err.message);
+        await sendSafe(sock, jid, { text: `⚠️ No pude verificar el número. Intenta de nuevo en un momento.` }, 'breach-phone-error');
+      }
+      return;
+    }
+    // ─────────────── fin chequeo de filtraciones ───────────────
+
     if (lower === 'registrar' || lower === 'registro') {
       registrationState.set(jid, 'awaiting');
       await sendSafe(sock, jid, {
@@ -218,14 +453,16 @@ async function handleMessage(sock, msg) {
       registrationState.delete(jid);
 
       // 1. Registrar PyME en Supabase
+      let pymeId = null;
       try {
-        await api.post('/pyme/register', {
+        const regResp = await api.post('/pyme/register', {
           owner_jid: jid,
           name: reg.name || msg.pushName || 'PyME sin nombre',
           website: reg.url,
           owner_email: reg.email || null,
           pushname: msg.pushName || null,
         });
+        pymeId = regResp.data?.pyme?.id || null;
       } catch (err) {
         console.error('PyME register error:', err?.response?.data || err.message);
       }
@@ -247,6 +484,14 @@ async function handleMessage(sock, msg) {
         }, { timeout: 90000 });
         const reply = formatScanResult(scanResp.data);
         await sendSafe(sock, jid, { text: reply }, 'scan-result');
+        if (pymeId) {
+          await sendSafe(sock, jid, {
+            text:
+              `📊 *Tu panel ejecutivo está listo*\n\n${PUBLIC_URL}/p/${pymeId}\n\n` +
+              `Guarda este link. Ahí verás tu histórico de escaneos, hallazgos y detecciones de phishing. ` +
+              `Escribe *reporte* en cualquier momento para ver el detalle completo, o *ayuda* para ver mis comandos.`,
+          }, 'scan-dashboard');
+        }
       } catch (err) {
         console.error('Scan error:', err?.response?.data || err.message);
         await sendSafe(sock, jid, {

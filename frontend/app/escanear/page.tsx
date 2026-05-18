@@ -12,6 +12,8 @@ import {
   Lightbulb,
   CheckCircle2,
   AlertCircle,
+  Download,
+  FileDown,
 } from "lucide-react";
 import type { Finding } from "@/lib/supabase";
 import {
@@ -93,7 +95,7 @@ export default function EscanearPage() {
         <div className="mx-auto max-w-5xl px-4 sm:px-6 py-5 sm:py-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition">
             <ArrowLeft className="size-4 text-zinc-500" />
-            <Image src="/sabuezo-logo.png" alt="Sabuezo" width={28} height={28} className="size-7" />
+            <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={28} height={28} className="size-7" />
             <span className="font-semibold">Sabuezo</span>
           </Link>
           <div className="text-xs text-zinc-500">Diagnóstico gratuito</div>
@@ -199,30 +201,43 @@ function InfoCard({ title, desc }: { title: string; desc: string }) {
   );
 }
 
+const SEV_ORDER: Finding["severity"][] = ["critical", "high", "medium", "low", "info"];
+const SEV_GROUP_LABEL: Record<string, string> = {
+  critical: "Crítico",
+  high: "Alto",
+  medium: "Medio",
+  low: "Bajo",
+  info: "Informativo",
+};
+
 function ResultsSection({ result, waNumber }: { result: ScanResult; waNumber: string }) {
   const findings = result.findings || [];
-  const critical = findings.filter((f) => f.severity === "critical");
-  const high = findings.filter((f) => f.severity === "high");
-  const medium = findings.filter((f) => f.severity === "medium");
-  const top = [...critical, ...high, ...medium].slice(0, 5);
+  const grouped = SEV_ORDER
+    .map((sev) => ({ sev, items: findings.filter((f) => f.severity === sev) }))
+    .filter((g) => g.items.length > 0);
   const spfMissing = result.raw?.email_auth?.spf_present === false;
   const dmarcMissing = result.raw?.email_auth?.dmarc_present === false;
 
   return (
     <section className="mx-auto max-w-5xl px-6 pb-20 space-y-6">
       {/* Score card */}
-      <div className={`rounded-2xl border ${scoreBg(result.score)} p-8 flex items-center gap-6 flex-wrap`}>
-        <div className={`text-7xl font-semibold tabular-nums ${scoreColor(result.score)}`}>
-          {result.score}
+      <div className={`rounded-2xl border ${scoreBg(result.score)} p-8 flex flex-col gap-6`}>
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className={`text-7xl font-semibold tabular-nums ${scoreColor(result.score)}`}>
+            {result.score}
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-xs uppercase tracking-wider text-zinc-400">
+              {result.domain}
+            </div>
+            <div className={`text-2xl font-semibold mt-1 ${scoreColor(result.score)}`}>
+              {scoreLabel(result.score)}
+            </div>
+            <div className="mt-1 text-zinc-300">{result.summary}</div>
+          </div>
         </div>
-        <div className="flex-1 min-w-[200px]">
-          <div className="text-xs uppercase tracking-wider text-zinc-400">
-            {result.domain}
-          </div>
-          <div className={`text-2xl font-semibold mt-1 ${scoreColor(result.score)}`}>
-            {scoreLabel(result.score)}
-          </div>
-          <div className="mt-1 text-zinc-300">{result.summary}</div>
+        <div className="flex justify-center">
+          <DownloadReportButton result={result} />
         </div>
       </div>
 
@@ -252,25 +267,30 @@ function ResultsSection({ result, waNumber }: { result: ScanResult; waNumber: st
         </div>
       )}
 
-      {/* Top findings */}
-      {top.length === 0 ? (
+      {/* Findings agrupados por severidad */}
+      {findings.length === 0 ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-emerald-300 flex items-center gap-3">
           <CheckCircle2 className="size-5" />
-          <span>Sin hallazgos críticos. Tu sitio está bien protegido.</span>
+          <span>Sin hallazgos. Tu sitio está bien protegido.</span>
         </div>
       ) : (
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Top hallazgos</h2>
-          <div className="space-y-3">
-            {top.map((f) => (
-              <FindingCard key={f.id} f={f} />
-            ))}
-          </div>
-          {findings.length > top.length && (
-            <div className="mt-4 text-sm text-zinc-500">
-              + {findings.length - top.length} hallazgos más.
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white">Hallazgos completos ({findings.length})</h2>
+          {grouped.map((g) => (
+            <div key={g.sev} className="space-y-3">
+              <div className="flex items-baseline gap-3 pb-2 border-b border-zinc-800">
+                <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${severityStyle[g.sev]}`}>
+                  {SEV_GROUP_LABEL[g.sev]}
+                </span>
+                <span className="text-xs text-zinc-500">
+                  {g.items.length} {g.items.length === 1 ? "hallazgo" : "hallazgos"}
+                </span>
+              </div>
+              {g.items.map((f) => (
+                <FindingCard key={f.id} f={f} />
+              ))}
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -280,7 +300,7 @@ function ResultsSection({ result, waNumber }: { result: ScanResult; waNumber: st
         <p className="mt-3 text-zinc-400 max-w-2xl mx-auto">
           Guarda el número de Sabuezo en tu WhatsApp. Reenvíale mensajes sospechosos,
           screenshots, correos de proveedor — te dice si es estafa al instante. Para
-          PyMEs mexicanas, gratis.
+          PyMEs de Latinoamérica, gratis.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a
@@ -299,6 +319,53 @@ function ResultsSection({ result, waNumber }: { result: ScanResult; waNumber: st
         </div>
       </div>
     </section>
+  );
+}
+
+function DownloadReportButton({ result }: { result: ScanResult }) {
+  const [generating, setGenerating] = useState(false);
+
+  async function handleDownload() {
+    setGenerating(true);
+    try {
+      // Lazy load (ahorra ~200KB del bundle inicial)
+      const [{ pdf }, { ReportPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/ReportPDF"),
+      ]);
+      const blob = await pdf(<ReportPDF scan={result} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sabuezo-${result.domain}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF error:", err);
+      alert("No pude generar el PDF. Intenta de nuevo.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={generating}
+      className="inline-flex items-center gap-2 rounded-xl bg-black hover:bg-zinc-900 disabled:bg-zinc-800 disabled:cursor-not-allowed transition text-amber-400 hover:text-amber-300 border border-amber-500/30 px-5 py-3 font-medium text-sm whitespace-nowrap"
+    >
+      {generating ? (
+        <>
+          <Loader2 className="size-4 animate-spin text-amber-400" /> Generando PDF...
+        </>
+      ) : (
+        <>
+          <FileDown className="size-4 text-amber-400" /> Descargar reporte en PDF
+        </>
+      )}
+    </button>
   );
 }
 
