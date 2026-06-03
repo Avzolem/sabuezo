@@ -29,7 +29,7 @@ const SECURITY_HEADERS = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.trycloudflare.com https://*.ts.net",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.trycloudflare.com https://*.ts.net https://api.pwnedpasswords.com",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",

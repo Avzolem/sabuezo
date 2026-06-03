@@ -13,6 +13,8 @@ import {
   Mail,
   Phone,
   Lightbulb,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 
 type EmailResult = {
@@ -32,7 +34,40 @@ type PhoneResult = {
   error?: string;
 };
 
-type Mode = "email" | "phone";
+type PasswordResult = {
+  found: boolean;
+  count: number;
+};
+
+type Mode = "email" | "phone" | "password";
+
+// SHA-1 en el navegador (Web Crypto). La contraseña nunca sale del dispositivo.
+async function sha1Hex(text: string): Promise<string> {
+  const data = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-1", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
+}
+
+// Chequeo k-anonymity contra HaveIBeenPwned Pwned Passwords.
+// Solo se envían los primeros 5 caracteres del hash; la comparación es local.
+async function checkPasswordPwned(password: string): Promise<PasswordResult> {
+  const hash = await sha1Hex(password);
+  const prefix = hash.slice(0, 5);
+  const suffix = hash.slice(5);
+  const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+  if (!res.ok) throw new Error("No pude consultar la base de contraseñas.");
+  const text = await res.text();
+  for (const line of text.split("\n")) {
+    const [suf, count] = line.trim().split(":");
+    if (suf === suffix) {
+      return { found: true, count: parseInt(count, 10) || 0 };
+    }
+  }
+  return { found: false, count: 0 };
+}
 
 export default function FiltracionesPage() {
   const [mode, setMode] = useState<Mode>("email");
@@ -41,10 +76,11 @@ export default function FiltracionesPage() {
   const [error, setError] = useState<string | null>(null);
   const [emailRes, setEmailRes] = useState<EmailResult | null>(null);
   const [phoneRes, setPhoneRes] = useState<PhoneResult | null>(null);
+  const [passwordRes, setPasswordRes] = useState<PasswordResult | null>(null);
 
   const waNumber = process.env.NEXT_PUBLIC_WA_NUMBER || "";
 
-  // Lee ?tipo=correo|numero|email|phone para arrancar en el tab correcto
+  // Lee ?tipo=correo|numero|contraseña|... para arrancar en el tab correcto
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -53,6 +89,8 @@ export default function FiltracionesPage() {
       setMode("phone");
     } else if (tipo === "correo" || tipo === "email") {
       setMode("email");
+    } else if (tipo === "password" || tipo === "contrasena" || tipo === "contraseña" || tipo === "clave") {
+      setMode("password");
     }
   }, []);
 
@@ -62,29 +100,37 @@ export default function FiltracionesPage() {
     setError(null);
     setEmailRes(null);
     setPhoneRes(null);
+    setPasswordRes(null);
   }
 
   async function handleCheck(e: React.FormEvent) {
     e.preventDefault();
-    if (!value.trim()) return;
+    if (!value) return;
     setLoading(true);
     setError(null);
     setEmailRes(null);
     setPhoneRes(null);
+    setPasswordRes(null);
 
     try {
-      const res = await fetch("/api/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: mode, value: value.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Error desconocido");
-      } else if (mode === "email") {
-        setEmailRes(data);
+      if (mode === "password") {
+        // 100% en el navegador: la contraseña nunca se envía a ningún servidor.
+        const r = await checkPasswordPwned(value);
+        setPasswordRes(r);
       } else {
-        setPhoneRes(data);
+        const res = await fetch("/api/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: mode, value: value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || "Error desconocido");
+        } else if (mode === "email") {
+          setEmailRes(data);
+        } else {
+          setPhoneRes(data);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error de red");
@@ -118,7 +164,7 @@ export default function FiltracionesPage() {
 
       <section className="mx-auto max-w-3xl px-4 sm:px-6 py-12 sm:py-16">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-white leading-tight">
-          ¿Tu correo o número <span className="text-amber-400">está filtrado</span>?
+          ¿Tu correo, número o contraseña <span className="text-amber-400">está filtrado</span>?
         </h1>
         <p className="mt-4 text-zinc-400 max-w-2xl">
           Cruzo tu dato contra millones de filtraciones públicas (Yahoo, LinkedIn, Adobe,
@@ -127,7 +173,7 @@ export default function FiltracionesPage() {
         </p>
 
         {/* Tabs */}
-        <div className="mt-8 flex gap-2 p-1 rounded-full border border-zinc-800 bg-zinc-900/40 w-fit">
+        <div className="mt-8 flex flex-wrap gap-2 p-1 rounded-full border border-zinc-800 bg-zinc-900/40 w-fit">
           <button
             type="button"
             onClick={() => switchMode("email")}
@@ -150,18 +196,37 @@ export default function FiltracionesPage() {
           >
             <Phone className="size-4" /> Número celular
           </button>
+          <button
+            type="button"
+            onClick={() => switchMode("password")}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
+              mode === "password"
+                ? "bg-amber-500 text-black font-medium"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            <KeyRound className="size-4" /> Contraseña
+          </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleCheck} className="mt-6 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-zinc-500" />
+            {mode === "password" ? (
+              <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-zinc-500" />
+            ) : (
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-zinc-500" />
+            )}
             <input
-              type={mode === "email" ? "email" : "tel"}
-              inputMode={mode === "email" ? "email" : "tel"}
-              autoComplete={mode === "email" ? "email" : "tel"}
+              type={mode === "email" ? "email" : mode === "phone" ? "tel" : "password"}
+              inputMode={mode === "email" ? "email" : mode === "phone" ? "tel" : "text"}
+              autoComplete={mode === "email" ? "email" : mode === "phone" ? "tel" : "off"}
               placeholder={
-                mode === "email" ? "tu@correo.com" : "55 1234 5678 (10 dígitos para MX)"
+                mode === "email"
+                  ? "tu@correo.com"
+                  : mode === "phone"
+                    ? "55 1234 5678 (10 dígitos para MX)"
+                    : "Escribe la contraseña a revisar"
               }
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -171,7 +236,7 @@ export default function FiltracionesPage() {
           </div>
           <button
             type="submit"
-            disabled={loading || !value.trim()}
+            disabled={loading || !value}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-6 py-3 font-medium disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {loading ? (
@@ -185,10 +250,21 @@ export default function FiltracionesPage() {
           </button>
         </form>
 
-        <p className="mt-3 text-xs text-zinc-500">
-          No guardamos tu correo ni número. Las consultas se hacen contra fuentes públicas
-          (XposedOrNot, LeakCheck) y se descartan después de mostrarte el resultado.
-        </p>
+        {mode === "password" ? (
+          <p className="mt-3 text-xs text-zinc-500 flex items-start gap-1.5">
+            <ShieldCheck className="size-4 text-emerald-400 shrink-0 mt-px" />
+            <span>
+              Tu contraseña <strong className="text-zinc-300">nunca sale de tu dispositivo</strong>. Sabuezo
+              la revisa de forma cifrada contra cientos de millones de contraseñas expuestas en filtraciones,
+              sin guardarla ni verla.
+            </span>
+          </p>
+        ) : (
+          <p className="mt-3 text-xs text-zinc-500">
+            Las consultas se hacen contra fuentes públicas (XposedOrNot, LeakCheck). Tu dato se usa solo para
+            esta búsqueda.
+          </p>
+        )}
 
         {/* Resultado */}
         {error && (
@@ -203,6 +279,7 @@ export default function FiltracionesPage() {
 
         {mode === "email" && emailRes && <EmailResultCard data={emailRes} value={value} />}
         {mode === "phone" && phoneRes && <PhoneResultCard data={phoneRes} value={value} />}
+        {mode === "password" && passwordRes && <PasswordResultCard data={passwordRes} />}
 
         {/* CTA bottom */}
         <div className="mt-12 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent p-6 sm:p-8">
@@ -311,6 +388,66 @@ function EmailResultCard({ data, value }: { data: EmailResult; value: string }) 
           "Activa autenticación de dos pasos (2FA) en este correo.",
           "Espera más phishing dirigido — los criminales ya tienen tu dirección.",
           "Si recibes 'factura de proveedor' desde un correo parecido al tuyo, asume estafa.",
+        ]}
+      />
+    </div>
+  );
+}
+
+function PasswordResultCard({ data }: { data: PasswordResult }) {
+  if (!data.found) {
+    return (
+      <div className="mt-8 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 sm:p-8">
+        <div className="flex items-start gap-4">
+          <div className="rounded-xl bg-emerald-500/15 p-3">
+            <ShieldCheck className="size-6 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-white">
+              Esta contraseña no aparece en filtraciones conocidas
+            </h3>
+            <p className="mt-2 text-zinc-300 leading-relaxed">
+              No la encontré entre los cientos de millones de contraseñas expuestas en filtraciones que
+              vigilo. Buena señal — pero{" "}
+              <strong className="text-white">que no esté filtrada no significa que sea fuerte</strong>.
+            </p>
+            <p className="mt-3 text-sm text-zinc-400">
+              💡 Una buena contraseña es larga (12+ caracteres), única por sitio y, de preferencia, generada
+              por un gestor de contraseñas.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8 space-y-5">
+      <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-6 sm:p-8">
+        <div className="flex items-start gap-4">
+          <div className="rounded-xl bg-red-500/20 p-3">
+            <AlertTriangle className="size-6 text-red-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-xl sm:text-2xl font-semibold text-white">
+              Esta contraseña apareció{" "}
+              <span className="text-red-300">{data.count.toLocaleString("es-MX")}</span>{" "}
+              {data.count === 1 ? "vez" : "veces"} en filtraciones
+            </h3>
+            <p className="mt-2 text-zinc-300 leading-relaxed">
+              Está en listas que los atacantes usan para entrar a cuentas por fuerza bruta. Si la usas en
+              algún lado, considérala <strong className="text-white">comprometida</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <ActionPlan
+        items={[
+          "Deja de usar esta contraseña en cualquier servicio donde la tengas.",
+          "Cámbiala primero en tu correo y tu banca — son las cuentas más críticas.",
+          "Usa una contraseña única por sitio; un gestor de contraseñas lo hace fácil.",
+          "Activa autenticación de dos pasos (2FA) donde puedas.",
         ]}
       />
     </div>
