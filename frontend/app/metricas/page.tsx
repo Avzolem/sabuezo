@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Lock,
   FileSpreadsheet,
+  LogOut,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -58,6 +59,16 @@ async function login(formData: FormData) {
     redirect("/metricas");
   }
   redirect("/metricas?error=1");
+}
+
+async function logout() {
+  "use server";
+  const c = await cookies();
+  // borra la cookie en ambos paths (incluye cookies viejas con path "/metricas")
+  for (const path of ["/", "/metricas"]) {
+    c.set(AUTH_COOKIE, "", { httpOnly: true, secure: true, path, maxAge: 0 });
+  }
+  redirect("/metricas");
 }
 
 type Metrics = {
@@ -140,10 +151,23 @@ export default async function MetricasPage({
           <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={36} height={36} className="size-9" priority />
           <span>Sabuezo</span>
         </Link>
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
-          <ArrowLeft className="size-4" />
-          Volver
-        </Link>
+        <div className="flex items-center gap-4 sm:gap-6">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
+            <ArrowLeft className="size-4" />
+            Volver
+          </Link>
+          {process.env.METRICAS_PASSWORD && (
+            <form action={logout}>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition"
+              >
+                <LogOut className="size-4" />
+                Cerrar sesión
+              </button>
+            </form>
+          )}
+        </div>
       </header>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-6 pb-24">
