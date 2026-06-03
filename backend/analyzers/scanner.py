@@ -91,15 +91,47 @@ async def check_ssl(hostname: str, port: int = 443) -> dict:
         return {"ok": False, "error": f"No se pudo conectar por HTTPS: {e}"}
 
 
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
+_BROWSER_HEADERS = {
+    "User-Agent": _BROWSER_UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "es-MX,es;q=0.9,en;q=0.8",
+}
+
+
+def _detect_challenge(status: int, headers: dict, body: str) -> Optional[str]:
+    """Detecta si la respuesta es una página de anti-DDoS / bot challenge.
+
+    Devuelve el nombre del proveedor si la detecta, o None.
+    """
+    if "x-vercel-challenge-token" in headers or "challenge" in (headers.get("x-vercel-mitigated") or ""):
+        return "Vercel Attack Challenge"
+    if "challenge" in (headers.get("cf-mitigated") or "") or "cf-chl-bypass" in headers:
+        return "Cloudflare Challenge"
+    if status == 403:
+        body_l = (body or "").lower()
+        if "just a moment" in body_l or "checking your browser" in body_l:
+            return "Cloudflare Challenge"
+        if "vercel security" in body_l:
+            return "Vercel Attack Challenge"
+    return None
+
+
 async def check_headers(url: str) -> dict:
     """Verifica headers de seguridad HTTP."""
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=HTTP_TIMEOUT, verify=False) as client:
-            r = await client.get(url, headers={"User-Agent": "Sabuezo/0.1"})
+            r = await client.get(url, headers=_BROWSER_HEADERS)
             h = {k.lower(): v for k, v in r.headers.items()}
+            body = r.text if "text/html" in h.get("content-type", "") else ""
+            challenge = _detect_challenge(r.status_code, h, body)
             return {
                 "final_url": str(r.url),
                 "status": r.status_code,
+                "challenge_protected": challenge,
                 "hsts": h.get("strict-transport-security"),
                 "csp": h.get("content-security-policy"),
                 "x_frame_options": h.get("x-frame-options"),
@@ -108,7 +140,7 @@ async def check_headers(url: str) -> dict:
                 "permissions_policy": h.get("permissions-policy"),
                 "server": h.get("server"),
                 "x_powered_by": h.get("x-powered-by"),
-                "html_snippet": r.text[:6000] if "text/html" in h.get("content-type", "") else "",
+                "html_snippet": body[:6000],
             }
     except Exception as e:
         return {"error": str(e)}
@@ -270,38 +302,50 @@ def _build_findings(url: str, domain: str, ssl_r: dict, hdr: dict, mail: dict, c
                 "fix_time_min": 20,
             })
 
-    # --- HSTS ---
-    if not hdr.get("hsts"):
+    # --- Anti-DDoS challenge: no podemos auditar los headers reales ---
+    challenge = hdr.get("challenge_protected")
+    if challenge:
         findings.append({
-            "id": "no_hsts",
-            "severity": "medium",
-            "title": "Sin HSTS — vulnerables a downgrade a HTTP",
-            "description": "Un atacante en la misma red WiFi puede forzar a tus visitantes a usar HTTP y leer su tráfico.",
-            "fix": "Agrega el header `Strict-Transport-Security: max-age=31536000; includeSubDomains` en tu servidor.",
-            "fix_time_min": 10,
-        })
-
-    # --- X-Frame-Options ---
-    if not hdr.get("x_frame_options") and not hdr.get("csp"):
-        findings.append({
-            "id": "no_xframe",
-            "severity": "medium",
-            "title": "Sitio vulnerable a clickjacking",
-            "description": "Un atacante puede embeber tu sitio en un iframe invisible y engañar a tus clientes para que hagan clics que no quieren.",
-            "fix": "Agrega `X-Frame-Options: SAMEORIGIN` o una política CSP `frame-ancestors`.",
+            "id": "challenge_protected",
+            "severity": "info",
+            "title": f"Sitio protegido por anti-DDoS ({challenge})",
+            "description": "El sitio bloquea bots con un reto previo, así que no pudimos leer los headers de seguridad reales. Tus visitantes en navegador sí los reciben.",
+            "fix": "Si quieres una auditoría completa, desactiva temporalmente el modo challenge o consulta los headers desde tu navegador con DevTools → Network → Headers.",
             "fix_time_min": 5,
         })
+    else:
+        # --- HSTS ---
+        if not hdr.get("hsts"):
+            findings.append({
+                "id": "no_hsts",
+                "severity": "medium",
+                "title": "Sin HSTS — vulnerables a downgrade a HTTP",
+                "description": "Un atacante en la misma red WiFi puede forzar a tus visitantes a usar HTTP y leer su tráfico.",
+                "fix": "Agrega el header `Strict-Transport-Security: max-age=31536000; includeSubDomains` en tu servidor.",
+                "fix_time_min": 10,
+            })
 
-    # --- CSP ---
-    if not hdr.get("csp"):
-        findings.append({
-            "id": "no_csp",
-            "severity": "low",
-            "title": "Sin Content-Security-Policy",
-            "description": "No tienes protección contra inyección de scripts maliciosos en tu sitio.",
-            "fix": "Define una política CSP. Empieza con `default-src 'self'`.",
-            "fix_time_min": 30,
-        })
+        # --- X-Frame-Options ---
+        if not hdr.get("x_frame_options") and not hdr.get("csp"):
+            findings.append({
+                "id": "no_xframe",
+                "severity": "medium",
+                "title": "Sitio vulnerable a clickjacking",
+                "description": "Un atacante puede embeber tu sitio en un iframe invisible y engañar a tus clientes para que hagan clics que no quieren.",
+                "fix": "Agrega `X-Frame-Options: SAMEORIGIN` o una política CSP `frame-ancestors`.",
+                "fix_time_min": 5,
+            })
+
+        # --- CSP ---
+        if not hdr.get("csp"):
+            findings.append({
+                "id": "no_csp",
+                "severity": "low",
+                "title": "Sin Content-Security-Policy",
+                "description": "No tienes protección contra inyección de scripts maliciosos en tu sitio.",
+                "fix": "Define una política CSP. Empieza con `default-src 'self'`.",
+                "fix_time_min": 30,
+            })
 
     # --- EMAIL AUTH — la pieza mágica ---
     if not mail.get("spf_present"):

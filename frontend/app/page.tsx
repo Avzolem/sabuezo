@@ -368,11 +368,22 @@ export default async function HomePage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-zinc-500">
           <div className="flex items-center gap-2">
             <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={24} height={24} className="size-6" />
-            <span>Sabuezo · Hecho con cariño en LATAM 🌎</span>
+            <span>
+              Sabuezo · Hecho con cariño por{" "}
+              <a
+                href="https://avsolem.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-300 hover:text-amber-400 transition underline underline-offset-4 decoration-zinc-700 hover:decoration-amber-400/60"
+              >
+                Andrés Aguilar
+              </a>{" "}
+              en LATAM 🌎
+            </span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-zinc-300 transition">Términos</a>
-            <a href="#" className="hover:text-zinc-300 transition">Privacidad</a>
+            <Link href="/terminos" className="hover:text-zinc-300 transition">Términos</Link>
+            <Link href="/privacidad" className="hover:text-zinc-300 transition">Privacidad</Link>
           </div>
         </div>
       </footer>
