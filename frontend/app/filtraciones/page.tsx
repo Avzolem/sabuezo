@@ -397,6 +397,35 @@ function EmailResultCard({ data, value }: { data: EmailResult; value: string }) 
   );
 }
 
+// Traduce el conteo crudo de la base de filtraciones a qué tan "quemada" está.
+function exposureLevel(count: number): { label: string; detail: string } {
+  if (count >= 100_000)
+    return {
+      label: "De las más usadas del mundo",
+      detail:
+        "Está entre las contraseñas más comunes del planeta. Un atacante la prueba de primero — la adivinaría en segundos.",
+    };
+  if (count >= 10_000)
+    return {
+      label: "Muy común",
+      detail: "Aparece en las primeras listas que se prueban en ataques automáticos.",
+    };
+  if (count >= 1_000)
+    return {
+      label: "Común",
+      detail: "Sale con frecuencia en filtraciones; es una apuesta segura para un atacante.",
+    };
+  if (count >= 100)
+    return {
+      label: "Vista varias veces",
+      detail: "Ya circula en bases de datos filtradas y se prueba en ataques.",
+    };
+  return {
+    label: "Vista en filtraciones",
+    detail: "Pocas apariciones, pero ya está expuesta. No la sigas usando.",
+  };
+}
+
 function PasswordResultCard({ data }: { data: PasswordResult }) {
   if (!data.found) {
     return (
@@ -431,15 +460,18 @@ function PasswordResultCard({ data }: { data: PasswordResult }) {
           <div className="rounded-xl bg-red-500/20 p-3">
             <AlertTriangle className="size-6 text-red-400" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-xl sm:text-2xl font-semibold text-white">
               Esta contraseña apareció{" "}
               <span className="text-red-300">{data.count.toLocaleString("es-MX")}</span>{" "}
               {data.count === 1 ? "vez" : "veces"} en filtraciones
             </h3>
-            <p className="mt-2 text-zinc-300 leading-relaxed">
-              Está en listas que los atacantes usan para entrar a cuentas por fuerza bruta. Si la usas en
-              algún lado, considérala <strong className="text-white">comprometida</strong>.
+            <div className="mt-2 inline-flex items-center rounded-full bg-red-500/20 border border-red-500/30 px-3 py-1 text-xs font-medium text-red-200">
+              {exposureLevel(data.count).label}
+            </div>
+            <p className="mt-3 text-zinc-300 leading-relaxed">
+              {exposureLevel(data.count).detail} Si la usas en algún lado, considérala{" "}
+              <strong className="text-white">comprometida</strong>.
             </p>
           </div>
         </div>
