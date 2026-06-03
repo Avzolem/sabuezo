@@ -170,6 +170,12 @@ async def health():
     return {"status": "ok", "service": "sabuezo"}
 
 
+@app.get("/metrics")
+async def metrics(x_internal_token: Optional[str] = Header(None)):
+    require_internal(x_internal_token)
+    return db.compute_metrics()
+
+
 @app.post("/analyze/text")
 async def analyze_text(req: TextRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)

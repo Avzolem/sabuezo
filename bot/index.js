@@ -24,6 +24,71 @@ const api = axios.create({
   headers: { 'x-internal-token': INTERNAL_API_TOKEN },
 });
 
+// ─────────────────────────────────────────────────────────────
+// Comportamiento "humano" para evitar la detección de automatización
+// de WhatsApp: lecturas, "escribiendo…", delays y throttle global.
+// ─────────────────────────────────────────────────────────────
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const rand = (min, max) => Math.floor(min + Math.random() * (max - min));
+
+const MIN_GAP_MS = 2500; // separación mínima entre dos envíos cualesquiera
+let _lastSendAt = 0;
+let _sendChain = Promise.resolve(); // serializa todos los envíos (anti-ráfaga)
+
+async function markReadSafe(sock, msg) {
+  try {
+    await sock.readMessages([msg.key]);
+  } catch {
+    /* no crítico */
+  }
+}
+
+async function humanTyping(sock, jid, textLen = 0) {
+  // muestra "escribiendo…" un tiempo proporcional al largo de la respuesta
+  try {
+    await sock.sendPresenceUpdate('composing', jid);
+  } catch {
+    /* no crítico */
+  }
+  const think = rand(1200, 2600);
+  const write = Math.min(textLen * 18, 4000);
+  await sleep(think + write);
+  try {
+    await sock.sendPresenceUpdate('paused', jid);
+  } catch {
+    /* no crítico */
+  }
+}
+
+// Mensaje de bienvenida con saludo variado: evita mandar texto idéntico
+// a muchos usuarios (señal típica de bot).
+const WELCOME_GREETINGS = [
+  '🐕 *Hola, soy Sabuezo*',
+  '🐕 *¡Hey! Soy Sabuezo*',
+  '🐕 *Qué tal, soy Sabuezo*',
+  '🐕 *Hola 👋 soy Sabuezo*',
+  '🐕 *Buenas, soy Sabuezo*',
+];
+
+function welcomeMessage() {
+  const greeting = WELCOME_GREETINGS[rand(0, WELCOME_GREETINGS.length)];
+  return (
+    `${greeting}\n\n` +
+    `Soy el guardián anti-estafa de las PyMEs de LATAM. *No soy un chat* — soy un detector. Reenvíame solo cosas sospechosas.\n\n` +
+    `*📩 Ejemplos de lo que detecto:*\n\n` +
+    `🏛️ _"Su factura del SAT está vencida, pague aquí: bit.ly/sat-pago..."_\n\n` +
+    `🏦 _"BBVA: detectamos actividad sospechosa, verifica tu cuenta..."_\n\n` +
+    `📦 _"Soy el nuevo proveedor, te paso mi nueva CLABE para el depósito..."_\n\n` +
+    `📞 _"Tu hijo está secuestrado, deposita ya o..."_\n\n` +
+    `🖼️ Screenshots de mensajes o correos raros que recibiste.\n\n` +
+    `*Comandos rápidos:*\n` +
+    `• *registrar* — Vincula tu PyME y escanea tu sitio\n` +
+    `• *correo tucorreo@dominio.com* — Revisa si está filtrado\n` +
+    `• *numero 5512345678* — Revisa si tu número fue filtrado\n` +
+    `• *ayuda* — Ver todos mis comandos`
+  );
+}
+
 function extractText(msg) {
   const m = msg.message;
   if (!m) return '';
@@ -265,14 +330,30 @@ function formatPhoneBreach(phone, data) {
 }
 
 async function sendSafe(sock, jid, payload, label = '') {
-  try {
-    const result = await sock.sendMessage(jid, payload);
-    console.log(`  → SENT [${label}] to ${jid}: id=${result?.key?.id}`);
-    return result;
-  } catch (err) {
-    console.error(`  ✗ sendMessage FAIL [${label}] to ${jid}:`, err.message);
-    throw err;
-  }
+  // Serializa todos los envíos en una cadena global: nunca salen en ráfaga.
+  // Cada envío respeta un gap mínimo y simula "escribiendo…" antes de mandar.
+  const run = async () => {
+    const wait = MIN_GAP_MS - (Date.now() - _lastSendAt);
+    if (wait > 0) await sleep(wait);
+
+    const textLen = (payload?.text || payload?.caption || '').length;
+    await humanTyping(sock, jid, textLen);
+
+    try {
+      const result = await sock.sendMessage(jid, payload);
+      _lastSendAt = Date.now();
+      console.log(`  → SENT [${label}] to ${jid}: id=${result?.key?.id}`);
+      return result;
+    } catch (err) {
+      _lastSendAt = Date.now();
+      console.error(`  ✗ sendMessage FAIL [${label}] to ${jid}:`, err.message);
+      throw err;
+    }
+  };
+
+  // encadena (recuperándose de errores previos para no romper la cola)
+  _sendChain = _sendChain.then(run, run);
+  return _sendChain;
 }
 
 async function handleMessage(sock, msg) {
@@ -283,26 +364,14 @@ async function handleMessage(sock, msg) {
   console.log(`[${new Date().toISOString()}] ← ${jid} (${kind}): ${text.slice(0, 80)}`);
   console.log(`  msg.key=${JSON.stringify(msg.key)}  pushName=${msg.pushName || ''}`);
 
+  // Marca el mensaje entrante como leído (palomita azul), como haría un humano.
+  await markReadSafe(sock, msg);
+
   // Comandos básicos
   if (kind === 'text') {
     const lower = text.trim().toLowerCase();
     if (lower === 'hola' || lower === 'hi' || lower === 'start') {
-      await sendSafe(sock, jid, {
-        text:
-          `🐕 *Hola, soy Sabuezo*\n\n` +
-          `Soy el guardián anti-estafa de las PyMEs de LATAM. *No soy un chat* — soy un detector. Reenvíame solo cosas sospechosas.\n\n` +
-          `*📩 Ejemplos de lo que detecto:*\n\n` +
-          `🏛️ _"Su factura del SAT está vencida, pague aquí: bit.ly/sat-pago..."_\n\n` +
-          `🏦 _"BBVA: detectamos actividad sospechosa, verifica tu cuenta..."_\n\n` +
-          `📦 _"Soy el nuevo proveedor, te paso mi nueva CLABE para el depósito..."_\n\n` +
-          `📞 _"Tu hijo está secuestrado, deposita ya o..."_\n\n` +
-          `🖼️ Screenshots de mensajes o correos raros que recibiste.\n\n` +
-          `*Comandos rápidos:*\n` +
-          `• *registrar* — Vincula tu PyME y escanea tu sitio\n` +
-          `• *correo tucorreo@dominio.com* — Revisa si está filtrado\n` +
-          `• *numero 5512345678* — Revisa si tu número fue filtrado\n` +
-          `• *ayuda* — Ver todos mis comandos`,
-      }, 'welcome');
+      await sendSafe(sock, jid, { text: welcomeMessage() }, 'welcome');
       return;
     }
     if (lower === 'ayuda' || lower === 'help' || lower === 'menu' || lower === 'menú') {

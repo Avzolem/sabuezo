@@ -169,3 +169,99 @@ def latest_scan_for_pyme(pyme_id: str) -> Optional[dict]:
         .execute()
     )
     return res.data[0] if res.data else None
+
+
+# ============================================================
+# Métricas (dashboard /metricas)
+# ============================================================
+def _fetch_all(client, table: str, columns: str, cap: int = 50000) -> list[dict]:
+    """Trae todas las filas paginando (PostgREST corta en 1000 por request)."""
+    rows: list[dict] = []
+    size = 1000
+    page = 0
+    while len(rows) < cap:
+        lo = page * size
+        r = client.table(table).select(columns).range(lo, lo + size - 1).execute()
+        batch = r.data or []
+        rows.extend(batch)
+        if len(batch) < size:
+            break
+        page += 1
+    return rows
+
+
+def _count(client, table: str) -> int:
+    return client.table(table).select("id", count="exact").limit(1).execute().count or 0
+
+
+def compute_metrics() -> dict:
+    """Agrega todas las métricas del servicio en un solo dict serializable."""
+    from collections import Counter, defaultdict
+
+    client = get_client()
+
+    # ---- Resumen global ----
+    detections = _fetch_all(client, "phishing_detections", "user_jid")
+    usuarios_bot = len({d["user_jid"] for d in detections if d.get("user_jid")})
+    summary = {
+        "pymes": _count(client, "pymes"),
+        "sitios_escaneados": _count(client, "scans"),
+        "mensajes_analizados": _count(client, "phishing_detections"),
+        "chequeos_filtraciones": _count(client, "breach_checks"),
+        "usuarios_unicos_bot": usuarios_bot,
+    }
+
+    # ---- Filtraciones ----
+    bc = _fetch_all(client, "breach_checks", "kind,domain,found,breach_count,source,created_at")
+
+    por_tipo = {}
+    for kind in ("email", "phone"):
+        rows = [x for x in bc if x.get("kind") == kind]
+        filtrados = [x for x in rows if x.get("found")]
+        n = len(rows)
+        por_tipo[kind] = {
+            "consultas": n,
+            "filtrados": len(filtrados),
+            "pct_filtrados": round(100 * len(filtrados) / n, 1) if n else 0,
+            "prom_filtraciones": round(sum((x.get("breach_count") or 0) for x in rows) / n, 1) if n else 0,
+        }
+
+    email_domains = Counter(x["domain"] for x in bc if x.get("kind") == "email" and x.get("domain"))
+    top_dominios_email = [{"dominio": d, "consultas": n} for d, n in email_domains.most_common(10)]
+
+    phone_cc = Counter(x["domain"] for x in bc if x.get("kind") == "phone" and x.get("domain"))
+    telefonos_por_pais = [{"cod_pais": d, "consultas": n} for d, n in phone_cc.most_common(10)]
+
+    by_day = defaultdict(lambda: {"web": 0, "bot": 0})
+    for x in bc:
+        dia = (x.get("created_at") or "")[:10]
+        if not dia:
+            continue
+        src = x.get("source") if x.get("source") in ("web", "bot") else "web"
+        by_day[dia][src] += 1
+    serie_diaria = [{"dia": d, **v} for d, v in sorted(by_day.items(), reverse=True)[:14]]
+
+    # ---- Sitios más escaneados ----
+    sc = _fetch_all(client, "scans", "domain,score")
+    dom_counter = Counter(x["domain"] for x in sc if x.get("domain"))
+    dom_scores = defaultdict(list)
+    for x in sc:
+        if x.get("domain") and x.get("score") is not None:
+            dom_scores[x["domain"]].append(x["score"])
+    sitios_top = []
+    for d, n in dom_counter.most_common(15):
+        scores = dom_scores.get(d, [])
+        sitios_top.append({
+            "sitio": d,
+            "escaneos": n,
+            "score_promedio": round(sum(scores) / len(scores)) if scores else None,
+        })
+
+    return {
+        "summary": summary,
+        "filtraciones_por_tipo": por_tipo,
+        "top_dominios_email": top_dominios_email,
+        "telefonos_por_pais": telefonos_por_pais,
+        "serie_diaria": serie_diaria,
+        "sitios_top": sitios_top,
+    }
