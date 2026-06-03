@@ -15,8 +15,10 @@ from pathlib import Path
 # Carga .env desde la raíz del proyecto (un nivel arriba de backend/)
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+import io
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
@@ -174,6 +176,73 @@ async def health():
 async def metrics(x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
     return db.compute_metrics()
+
+
+@app.get("/metrics/detail")
+async def metrics_detail(x_internal_token: Optional[str] = Header(None)):
+    """Listas completas (valores en claro) de correos y teléfonos consultados."""
+    require_internal(x_internal_token)
+    rows = db.breach_rows()
+    return {
+        "correos": [r for r in rows if r.get("kind") == "email"],
+        "telefonos": [r for r in rows if r.get("kind") == "phone"],
+    }
+
+
+@app.get("/metrics/export.xlsx")
+async def metrics_export(x_internal_token: Optional[str] = Header(None)):
+    """Genera un Excel con 3 hojas: Correos, Teléfonos y Sitios escaneados."""
+    require_internal(x_internal_token)
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    rows = db.breach_rows()
+    scans = db.scan_rows()
+
+    def header(ws, cols):
+        ws.append(cols)
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+
+    wb = Workbook()
+
+    ws1 = wb.active
+    ws1.title = "Correos"
+    header(ws1, ["Correo", "Dominio", "Filtrado", "Nº filtraciones", "Fuente", "Fecha"])
+    for r in (x for x in rows if x.get("kind") == "email"):
+        ws1.append([
+            r.get("value"), r.get("domain"),
+            "Sí" if r.get("found") else "No",
+            r.get("breach_count") or 0, r.get("source"),
+            (r.get("created_at") or "")[:19].replace("T", " "),
+        ])
+
+    ws2 = wb.create_sheet("Teléfonos")
+    header(ws2, ["Teléfono", "País", "Filtrado", "Nº filtraciones", "Fuente", "Fecha"])
+    for r in (x for x in rows if x.get("kind") == "phone"):
+        ws2.append([
+            r.get("value"), r.get("domain"),
+            "Sí" if r.get("found") else "No",
+            r.get("breach_count") or 0, r.get("source"),
+            (r.get("created_at") or "")[:19].replace("T", " "),
+        ])
+
+    ws3 = wb.create_sheet("Sitios escaneados")
+    header(ws3, ["URL", "Dominio", "Score", "Fecha"])
+    for r in scans:
+        ws3.append([
+            r.get("url"), r.get("domain"), r.get("score"),
+            (r.get("created_at") or "")[:19].replace("T", " "),
+        ])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=sabuezo-export.xlsx"},
+    )
 
 
 @app.post("/analyze/text")

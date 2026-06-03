@@ -16,6 +16,7 @@ import {
   Phone,
   AlertTriangle,
   Lock,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -51,7 +52,7 @@ async function login(formData: FormData) {
       httpOnly: true,
       sameSite: "lax",
       secure: true,
-      path: "/metricas",
+      path: "/", // cubre /metricas y /api/metricas/export
       maxAge: 60 * 60 * 24 * 30, // 30 días
     });
     redirect("/metricas");
@@ -84,22 +85,41 @@ type TipoStat = {
   prom_filtraciones: number;
 };
 
-async function getMetrics(): Promise<Metrics | null> {
+type BreachRow = {
+  kind: string;
+  value: string;
+  domain: string | null;
+  found: boolean;
+  breach_count: number;
+  source: string | null;
+  user_jid: string | null;
+  created_at: string;
+};
+
+type Detail = {
+  correos: BreachRow[];
+  telefonos: BreachRow[];
+};
+
+async function apiGet<T>(path: string): Promise<T | null> {
   const url = process.env.INTERNAL_API_URL;
   const token = process.env.INTERNAL_API_TOKEN;
   if (!url || !token) return null;
   try {
-    const res = await fetch(`${url}/metrics`, {
+    const res = await fetch(`${url}${path}`, {
       headers: { "x-internal-token": token },
       cache: "no-store",
       signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) return null;
-    return (await res.json()) as Metrics;
+    return (await res.json()) as T;
   } catch {
     return null;
   }
 }
+
+const getMetrics = () => apiGet<Metrics>("/metrics");
+const getDetail = () => apiGet<Detail>("/metrics/detail");
 
 export default async function MetricasPage({
   searchParams,
@@ -111,7 +131,7 @@ export default async function MetricasPage({
     return <LoginGate error={sp.error === "1"} />;
   }
 
-  const m = await getMetrics();
+  const [m, detail] = await Promise.all([getMetrics(), getDetail()]);
 
   return (
     <main className="min-h-screen bg-[var(--color-background)] grain">
@@ -127,15 +147,25 @@ export default async function MetricasPage({
       </header>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-6 pb-24">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/5 px-3 py-1 text-xs text-amber-300/90">
-          <BarChart3 className="size-3.5" />
-          Panel interno
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/5 px-3 py-1 text-xs text-amber-300/90">
+              <BarChart3 className="size-3.5" />
+              Panel interno
+            </div>
+            <h1 className="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight">Métricas del servicio</h1>
+            <p className="mt-3 text-zinc-400 leading-relaxed max-w-2xl">
+              Números en vivo de Sabuezo: PyMEs, escaneos, mensajes analizados y chequeos de filtraciones.
+            </p>
+          </div>
+          <a
+            href="/api/metricas/export"
+            className="inline-flex items-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-4 py-2.5 text-sm font-medium shrink-0"
+          >
+            <FileSpreadsheet className="size-4" />
+            Exportar Excel
+          </a>
         </div>
-        <h1 className="mt-4 text-3xl sm:text-4xl font-semibold tracking-tight">Métricas del servicio</h1>
-        <p className="mt-3 text-zinc-400 leading-relaxed max-w-2xl">
-          Números en vivo de Sabuezo: PyMEs, escaneos, mensajes analizados y chequeos de filtraciones. Datos
-          agregados — sin información personal individual.
-        </p>
 
         {!m ? (
           <div className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 flex items-start gap-3">
@@ -197,6 +227,31 @@ export default async function MetricasPage({
               ])}
               empty="Aún no hay escaneos."
             />
+
+            {/* Detalle: correos y teléfonos en claro */}
+            <div className="mt-16 flex items-center gap-2">
+              <Lock className="size-4 text-amber-400" />
+              <h2 className="text-xl font-semibold tracking-tight">Datos consultados</h2>
+            </div>
+            <p className="mt-2 text-sm text-zinc-500">
+              Correos y teléfonos completos que se han verificado en filtraciones. Información sensible —
+              visible solo en este panel protegido.
+            </p>
+
+            <div className="mt-6 grid lg:grid-cols-2 gap-8">
+              <BreachTable
+                icon={Mail}
+                title="Correos"
+                rows={detail?.correos ?? []}
+                valueHead="Correo"
+              />
+              <BreachTable
+                icon={Phone}
+                title="Teléfonos"
+                rows={detail?.telefonos ?? []}
+                valueHead="Teléfono"
+              />
+            </div>
           </>
         )}
       </section>
@@ -397,6 +452,64 @@ function RankTable({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BreachTable({
+  icon: Icon,
+  title,
+  rows,
+  valueHead,
+}: {
+  icon: React.ElementType;
+  title: string;
+  rows: BreachRow[];
+  valueHead: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="size-4 text-amber-400" />
+        <h3 className="text-sm font-semibold text-zinc-300">{title}</h3>
+        <span className="text-xs text-zinc-600">({rows.length})</span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-sm text-zinc-500">Aún no hay registros.</p>
+      ) : (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 overflow-hidden">
+          <div className="max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-zinc-950">
+                <tr className="border-b border-zinc-800 text-left text-[11px] uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-2.5 font-medium">{valueHead}</th>
+                  <th className="px-4 py-2.5 font-medium text-center">Filtrado</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Origen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className="border-b border-zinc-900 last:border-0 hover:bg-zinc-900/40 transition">
+                    <td className="px-4 py-2.5 text-zinc-200 truncate max-w-[200px]" title={r.value}>
+                      {r.value}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {r.found ? (
+                        <span className="inline-flex items-center rounded-full bg-red-500/15 text-red-300 px-2 py-0.5 text-xs">
+                          {r.breach_count}×
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600 text-xs">limpio</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-xs text-zinc-500">{r.source ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -265,3 +265,22 @@ def compute_metrics() -> dict:
         "serie_diaria": serie_diaria,
         "sitios_top": sitios_top,
     }
+
+
+def breach_rows() -> list[dict]:
+    """Todas las filas de chequeos de filtración (con el valor en claro)."""
+    client = get_client()
+    rows = _fetch_all(
+        client, "breach_checks",
+        "kind,value,domain,found,breach_count,source,user_jid,created_at",
+    )
+    rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+    return rows
+
+
+def scan_rows() -> list[dict]:
+    """Todos los sitios escaneados."""
+    client = get_client()
+    rows = _fetch_all(client, "scans", "url,domain,score,created_at")
+    rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+    return rows
