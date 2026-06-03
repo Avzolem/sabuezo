@@ -260,9 +260,12 @@ export default function FiltracionesPage() {
             </span>
           </p>
         ) : (
-          <p className="mt-3 text-xs text-zinc-500">
-            Las consultas se hacen contra fuentes públicas (XposedOrNot, LeakCheck). Tu dato se usa solo para
-            esta búsqueda.
+          <p className="mt-3 text-xs text-zinc-500 flex items-start gap-1.5">
+            <ShieldCheck className="size-4 text-emerald-400 shrink-0 mt-px" />
+            <span>
+              Sabuezo cruza tu dato contra cientos de millones de registros expuestos en filtraciones
+              públicas de todo el mundo.
+            </span>
           </p>
         )}
 
@@ -320,9 +323,9 @@ function EmailResultCard({ data, value }: { data: EmailResult; value: string }) 
           <div className="rounded-xl bg-emerald-500/15 p-3">
             <CheckCircle2 className="size-6 text-emerald-400" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-xl font-semibold text-white">
-              <span className="font-mono text-emerald-300">{value}</span> no aparece en filtraciones públicas
+              <span className="font-mono text-emerald-300 break-all">{value}</span> no aparece en filtraciones públicas
             </h3>
             <p className="mt-2 text-zinc-300 leading-relaxed">
               Buenas noticias. Esto no garantiza 100% — los criminales también usan listas
@@ -348,9 +351,9 @@ function EmailResultCard({ data, value }: { data: EmailResult; value: string }) 
           <div className="rounded-xl bg-red-500/20 p-3">
             <AlertTriangle className="size-6 text-red-400" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-xl sm:text-2xl font-semibold text-white">
-              <span className="font-mono text-red-300">{value}</span> aparece en {data.count} filtración
+              <span className="font-mono text-red-300 break-all">{value}</span> aparece en {data.count} filtración
               {data.count === 1 ? "" : "es"}
             </h3>
             <p className="mt-2 text-zinc-300 leading-relaxed">
@@ -479,9 +482,9 @@ function PhoneResultCard({ data, value }: { data: PhoneResult; value: string }) 
           <div className="rounded-xl bg-emerald-500/15 p-3">
             <CheckCircle2 className="size-6 text-emerald-400" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-xl font-semibold text-white">
-              <span className="font-mono text-emerald-300">{value}</span> no aparece en filtraciones públicas
+              <span className="font-mono text-emerald-300 break-all">{value}</span> no aparece en filtraciones públicas
             </h3>
             <p className="mt-2 text-zinc-300 leading-relaxed">
               Tu número no está en las bases de datos públicas que consultamos. Mantente
@@ -506,9 +509,9 @@ function PhoneResultCard({ data, value }: { data: PhoneResult; value: string }) 
           <div className="rounded-xl bg-red-500/20 p-3">
             <AlertTriangle className="size-6 text-red-400" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-xl sm:text-2xl font-semibold text-white">
-              <span className="font-mono text-red-300">{value}</span> aparece en {data.count} fuga
+              <span className="font-mono text-red-300 break-all">{value}</span> aparece en {data.count} fuga
               {data.count === 1 ? "" : "s"} de datos
             </h3>
             <p className="mt-2 text-zinc-300 leading-relaxed">

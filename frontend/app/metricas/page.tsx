@@ -447,12 +447,12 @@ function RankTable({
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className}`}>
       {title && <h3 className="text-sm font-semibold text-zinc-300 mb-3">{title}</h3>}
       {rows.length === 0 ? (
         <p className="text-sm text-zinc-500">{empty}</p>
       ) : (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 overflow-hidden">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-800 text-left text-[11px] uppercase tracking-wider text-zinc-500">
@@ -494,7 +494,7 @@ function BreachTable({
   valueHead: string;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex items-center gap-2 mb-3">
         <Icon className="size-4 text-amber-400" />
         <h3 className="text-sm font-semibold text-zinc-300">{title}</h3>
@@ -504,7 +504,7 @@ function BreachTable({
         <p className="text-sm text-zinc-500">Aún no hay registros.</p>
       ) : (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 overflow-hidden">
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-zinc-950">
                 <tr className="border-b border-zinc-800 text-left text-[11px] uppercase tracking-wider text-zinc-500">

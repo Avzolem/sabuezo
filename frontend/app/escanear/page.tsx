@@ -226,8 +226,8 @@ function ResultsSection({ result, waNumber }: { result: ScanResult; waNumber: st
           <div className={`text-7xl font-semibold tabular-nums ${scoreColor(result.score)}`}>
             {result.score}
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-xs uppercase tracking-wider text-zinc-400">
+          <div className="flex-1 min-w-0 sm:min-w-[200px]">
+            <div className="text-xs uppercase tracking-wider text-zinc-400 break-all">
               {result.domain}
             </div>
             <div className={`text-2xl font-semibold mt-1 ${scoreColor(result.score)}`}>
@@ -384,7 +384,7 @@ function FindingCard({ f }: { f: Finding }) {
           <Shield className="size-3" />
           Cómo arreglarlo · {f.fix_time_min} min
         </div>
-        <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono">{f.fix}</pre>
+        <pre className="text-xs text-zinc-300 whitespace-pre-wrap break-words font-mono">{f.fix}</pre>
       </div>
     </div>
   );
