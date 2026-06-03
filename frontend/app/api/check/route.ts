@@ -78,7 +78,7 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
         "x-internal-token": TOKEN,
       },
-      body: JSON.stringify({ value }),
+      body: JSON.stringify({ value, source: "web" }),
       signal: ctrl.signal,
     });
     clearTimeout(tid);

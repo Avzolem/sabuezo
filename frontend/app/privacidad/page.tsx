@@ -86,7 +86,10 @@ export default function PrivacidadPage() {
               </Item>
               <Item label="Chequeo de filtraciones">
                 El correo o teléfono que envías para verificar si aparece en bases de datos filtradas. Lo
-                consultamos contra XposedOrNot (correos) y LeakCheck (teléfonos), ambos servicios públicos.
+                consultamos contra XposedOrNot (correos) y LeakCheck (teléfonos), ambos servicios públicos, y
+                guardamos un registro de la consulta (el valor consultado, si resultó filtrado y la fecha)
+                para generar estadísticas internas del servicio. Estos registros no son públicos y solo
+                nuestro backend puede leerlos.
               </Item>
               <Item label="Escáner web">
                 La URL que decides escanear y los resultados técnicos del análisis (cabeceras, certificados,
@@ -145,7 +148,7 @@ export default function PrivacidadPage() {
           <Section title="5. Cuánto tiempo guardamos tus datos">
             <ul className="mt-2 space-y-2 list-disc list-inside marker:text-amber-500/60">
               <li>Registro de PyME y detecciones: mientras uses el servicio o hasta que pidas borrarlo.</li>
-              <li>Chequeos de filtraciones: la consulta no se persiste, solo se registra el resultado agregado.</li>
+              <li>Chequeos de filtraciones: se conservan mientras uses el servicio o hasta que pidas borrarlos.</li>
               <li>Logs técnicos (IP, rate-limiting): hasta 30 días.</li>
             </ul>
           </Section>

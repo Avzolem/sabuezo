@@ -73,6 +73,7 @@ class ScanRequest(BaseModel):
 class BreachCheckRequest(BaseModel):
     user_id: Optional[str] = None
     value: str
+    source: Optional[str] = None  # 'web' | 'bot' (si falta, se infiere)
 
 
 class PymeRegisterRequest(BaseModel):
@@ -138,6 +139,32 @@ def _persist_detection_safe(user_jid, kind, result, raw_content="", pushname=Non
         print(f"[db] error guardando detección: {e}")
 
 
+def _persist_breach_safe(kind, value, result, source=None, user_jid=None):
+    """Registra el chequeo de filtración sin romper la respuesta si la DB falla.
+
+    Solo persiste consultas válidas (result.ok). El `domain` es el dominio del
+    correo o el código de país del teléfono — útil para métricas agregadas.
+    """
+    try:
+        if not result.get("ok"):
+            return
+        if kind == "email":
+            domain = value.split("@")[-1].lower() if "@" in value else None
+        else:
+            domain = value[:2] if value else None  # código de país (52, 57, …)
+        db.save_breach_check(
+            kind=kind,
+            value=value,
+            found=bool(result.get("found")),
+            breach_count=int(result.get("count") or 0),
+            domain=domain,
+            source=source,
+            user_jid=user_jid,
+        )
+    except Exception as e:
+        print(f"[db] error guardando breach_check: {e}")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "sabuezo"}
@@ -186,13 +213,21 @@ async def pyme_register(req: PymeRegisterRequest, x_internal_token: Optional[str
 @app.post("/check/email")
 async def check_email_breach(req: BreachCheckRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
-    return await breach_checker.check_email(req.value)
+    value = (req.value or "").strip().lower()
+    result = await breach_checker.check_email(value)
+    source = req.source or ("bot" if req.user_id else "web")
+    _persist_breach_safe("email", value, result, source=source, user_jid=req.user_id)
+    return result
 
 
 @app.post("/check/phone")
 async def check_phone_breach(req: BreachCheckRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
-    return await breach_checker.check_phone(req.value)
+    value = breach_checker.normalize_phone(req.value)
+    result = await breach_checker.check_phone(req.value)
+    source = req.source or ("bot" if req.user_id else "web")
+    _persist_breach_safe("phone", value, result, source=source, user_jid=req.user_id)
+    return result
 
 
 @app.get("/pyme/by-jid/{jid}/last-scan")

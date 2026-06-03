@@ -67,6 +67,25 @@ create index if not exists idx_phishing_user on public.phishing_detections(user_
 create index if not exists idx_phishing_risk on public.phishing_detections(risk, created_at desc);
 
 -- ============================================================
+-- Chequeos de filtraciones — cada correo/teléfono consultado
+-- ============================================================
+create table if not exists public.breach_checks (
+  id            uuid primary key default gen_random_uuid(),
+  kind          text not null,                  -- 'email' | 'phone'
+  value         text not null,                  -- valor consultado (en claro)
+  domain        text,                           -- dominio del correo o código de país del tel
+  found         boolean not null default false, -- ¿apareció en alguna filtración?
+  breach_count  int not null default 0,         -- nº de filtraciones encontradas
+  source        text,                           -- 'web' | 'bot'
+  user_jid      text,                           -- JID de WhatsApp si vino del bot
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists idx_breach_kind   on public.breach_checks(kind, created_at desc);
+create index if not exists idx_breach_found  on public.breach_checks(found, created_at desc);
+create index if not exists idx_breach_domain on public.breach_checks(domain);
+
+-- ============================================================
 -- RLS — permisivo para el hackathon (frontend lee con publishable key)
 -- El service_role / sb_secret SIEMPRE bypassa RLS, así que el backend
 -- puede escribir libremente sin policies de insert/update.
@@ -74,6 +93,7 @@ create index if not exists idx_phishing_risk on public.phishing_detections(risk,
 alter table public.pymes enable row level security;
 alter table public.scans enable row level security;
 alter table public.phishing_detections enable row level security;
+alter table public.breach_checks enable row level security;
 
 -- Lectura pública (demo)
 drop policy if exists "public read pymes" on public.pymes;
@@ -87,6 +107,10 @@ create policy "public read scans" on public.scans
 drop policy if exists "public read phishing" on public.phishing_detections;
 create policy "public read phishing" on public.phishing_detections
   for select using (true);
+
+-- breach_checks: SIN lectura pública. Contiene PII en claro (correos/teléfonos).
+-- Solo el backend (service_role) puede leer/escribir; bypassa RLS.
+-- No se crea ninguna policy de select → la anon key no puede leerla.
 
 -- ============================================================
 -- Vista útil para el dashboard

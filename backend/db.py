@@ -115,6 +115,34 @@ def save_phishing_detection(
 
 
 # ============================================================
+# Breach checks (filtraciones de correo/teléfono)
+# ============================================================
+def save_breach_check(
+    kind: str,
+    value: str,
+    found: bool,
+    breach_count: int,
+    domain: Optional[str] = None,
+    source: Optional[str] = None,
+    user_jid: Optional[str] = None,
+) -> dict:
+    """Registra una consulta de filtración (email o teléfono)."""
+    client = get_client()
+    payload = {
+        "kind": kind,
+        "value": value,
+        "domain": domain,
+        "found": found,
+        "breach_count": breach_count,
+        "source": source,
+        "user_jid": user_jid,
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
+    res = client.table("breach_checks").insert(payload).execute()
+    return res.data[0] if res.data else {}
+
+
+# ============================================================
 # Queries auxiliares (para dashboard / cross-ref)
 # ============================================================
 def recent_detections_for_pyme(pyme_id: str, limit: int = 10) -> list[dict]:
