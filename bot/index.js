@@ -30,10 +30,47 @@ const api = axios.create({
 // ─────────────────────────────────────────────────────────────
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(min + Math.random() * (max - min));
+const pick = (arr) => arr[rand(0, arr.length)];
 
-const MIN_GAP_MS = 2500; // separación mínima entre dos envíos cualesquiera
+// Gap mínimo entre dos envíos cualesquiera, con jitter: un período fijo
+// (p. ej. siempre 2.5 s) es en sí mismo un patrón detectable.
+const GAP_MIN_MS = 2200;
+const GAP_MAX_MS = 4800;
 let _lastSendAt = 0;
 let _sendChain = Promise.resolve(); // serializa todos los envíos (anti-ráfaga)
+
+// ─────────────────────────────────────────────────────────────
+// Rate-limit por destinatario: evita que un mismo número — sobre todo
+// uno nuevo — nos haga emitir un volumen anómalo de mensajes en un día,
+// que es justo el patrón que dispara restricciones de WhatsApp.
+// (Estado en memoria; se reinicia si se reinicia el proceso.)
+// ─────────────────────────────────────────────────────────────
+const DAILY_SEND_LIMIT = 40;   // máx. respuestas a un contacto establecido / día
+const NEW_CONTACT_LIMIT = 20;  // límite más estricto para contactos de su primer día
+const _sendCounters = new Map(); // jid → { day, count, firstSeenDay }
+const _limitNotified = new Set(); // jids ya avisados de su límite hoy
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+// Registra un envío hacia jid y devuelve true si todavía estamos por debajo
+// del límite diario. Contactos vistos por primera vez hoy tienen un tope menor.
+function canSendTo(jid) {
+  const day = todayKey();
+  let rec = _sendCounters.get(jid);
+  if (!rec || rec.day !== day) {
+    const firstSeenDay = rec?.firstSeenDay || day; // preserva el primer día visto
+    rec = { day, count: 0, firstSeenDay };
+    _sendCounters.set(jid, rec);
+    _limitNotified.delete(jid);
+  }
+  const isNewContact = rec.firstSeenDay === day;
+  const limit = isNewContact ? NEW_CONTACT_LIMIT : DAILY_SEND_LIMIT;
+  if (rec.count >= limit) return false;
+  rec.count += 1;
+  return true;
+}
 
 async function markReadSafe(sock, msg) {
   try {
@@ -44,15 +81,16 @@ async function markReadSafe(sock, msg) {
 }
 
 async function humanTyping(sock, jid, textLen = 0) {
-  // muestra "escribiendo…" un tiempo proporcional al largo de la respuesta
+  // muestra "escribiendo…" un tiempo variable, no proporcional fijo
   try {
     await sock.sendPresenceUpdate('composing', jid);
   } catch {
     /* no crítico */
   }
-  const think = rand(1200, 2600);
-  const write = Math.min(textLen * 18, 4000);
-  await sleep(think + write);
+  const think = rand(900, 3400); // pausa de "lectura/pensar" antes de teclear
+  const write = Math.min(textLen * rand(14, 26), rand(3500, 5500)); // velocidad de tecleo variable
+  const distracted = Math.random() < 0.15 ? rand(1500, 4500) : 0; // de vez en cuando se "distrae"
+  await sleep(think + write + distracted);
   try {
     await sock.sendPresenceUpdate('paused', jid);
   } catch {
@@ -69,6 +107,27 @@ const WELCOME_GREETINGS = [
   '🐕 *Hola 👋 soy Sabuezo*',
   '🐕 *Buenas, soy Sabuezo*',
 ];
+
+// Firma variada: el mismo pie de página idéntico en cada respuesta es,
+// por sí solo, una huella de bot. Rotamos entre varias redacciones.
+const SIGNATURES = [
+  '_Soy Sabuezo 🐕 — democratizando la ciberseguridad para LATAM._',
+  '_Sabuezo 🐕 — ciberseguridad al alcance de toda PyME._',
+  '_Soy Sabuezo 🐕, tu guardián anti-estafa en LATAM._',
+  '_Sabuezo 🐕 — protegiendo a las PyMEs de LATAM, una estafa menos._',
+  '_Cuídate 🐕 — Sabuezo, ciberseguridad para LATAM._',
+];
+const signature = () => pick(SIGNATURES);
+
+// Mensaje "estoy buscando…" variado para no repetir texto idéntico.
+function searchingMsg(target) {
+  return pick([
+    `🔍 Buscando *${target}* en filtraciones públicas…`,
+    `🔎 Déjame revisar *${target}* en las bases de datos filtradas…`,
+    `🐕 Rastreando *${target}*… dame unos segundos.`,
+    `🔍 Reviso si *${target}* aparece en alguna fuga de datos…`,
+  ]);
+}
 
 function welcomeMessage() {
   const greeting = WELCOME_GREETINGS[rand(0, WELCOME_GREETINGS.length)];
@@ -155,7 +214,7 @@ function formatScanResult(scan) {
     out += `🪄 *Insight clave:* Tu dominio no protege tu correo (${noSpf ? 'SPF' : 'DMARC'} ausente). Esto explica por qué tus empleados reciben tanto phishing pretendiendo ser de tu empresa.\n\n`;
   }
 
-  out += `_Soy Sabuezo 🐕 — democratizando la ciberseguridad para LATAM._`;
+  out += signature();
   return out;
 }
 
@@ -220,7 +279,7 @@ function formatReply(result) {
     out += `\n🪄 *Insight de tu dominio:*\n${cross_insight.message}\n`;
     out += `Escribe *reporte* para ver tu diagnóstico de seguridad.\n`;
   }
-  out += `\n_Soy Sabuezo 🐕 — democratizando la ciberseguridad para LATAM._`;
+  out += `\n${signature()}`;
   return out;
 }
 
@@ -330,10 +389,26 @@ function formatPhoneBreach(phone, data) {
 }
 
 async function sendSafe(sock, jid, payload, label = '') {
+  // Rate-limit por destinatario: si este jid ya superó su tope diario,
+  // no respondemos más (salvo un único aviso). El propio aviso se exime.
+  if (label !== 'rate-limit' && !canSendTo(jid)) {
+    if (!_limitNotified.has(jid)) {
+      _limitNotified.add(jid);
+      return sendSafe(sock, jid, {
+        text:
+          `🐕 Por hoy llegamos al límite de consultas para este chat. ` +
+          `Vuelve mañana y seguimos — es una medida para mantener el servicio sano para todos.`,
+      }, 'rate-limit');
+    }
+    console.log(`  ⏸ rate-limited [${label}] to ${jid} (sin enviar)`);
+    return null;
+  }
+
   // Serializa todos los envíos en una cadena global: nunca salen en ráfaga.
-  // Cada envío respeta un gap mínimo y simula "escribiendo…" antes de mandar.
+  // Cada envío respeta un gap mínimo (con jitter) y simula "escribiendo…".
   const run = async () => {
-    const wait = MIN_GAP_MS - (Date.now() - _lastSendAt);
+    const gap = rand(GAP_MIN_MS, GAP_MAX_MS);
+    const wait = gap - (Date.now() - _lastSendAt);
     if (wait > 0) await sleep(wait);
 
     const textLen = (payload?.text || payload?.caption || '').length;
@@ -458,7 +533,7 @@ async function handleMessage(sock, msg) {
         }, 'breach-email-missing');
         return;
       }
-      await sendSafe(sock, jid, { text: `🔍 Buscando *${target}* en filtraciones públicas…` }, 'breach-email-start');
+      await sendSafe(sock, jid, { text: searchingMsg(target) }, 'breach-email-start');
       try {
         const r = await api.post('/check/email', { user_id: jid, value: target });
         await sendSafe(sock, jid, { text: formatEmailBreach(target, r.data) }, 'breach-email-result');
@@ -481,7 +556,7 @@ async function handleMessage(sock, msg) {
         }, 'breach-phone-missing');
         return;
       }
-      await sendSafe(sock, jid, { text: `🔍 Buscando *${target}* en filtraciones públicas…` }, 'breach-phone-start');
+      await sendSafe(sock, jid, { text: searchingMsg(target) }, 'breach-phone-start');
       try {
         const r = await api.post('/check/phone', { user_id: jid, value: target });
         await sendSafe(sock, jid, { text: formatPhoneBreach(target, r.data) }, 'breach-phone-result');
