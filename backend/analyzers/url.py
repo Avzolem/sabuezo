@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 import tldextract
 import whois
 
+from integrations import urlscan
+
 # Dominios oficiales mexicanos comunes que se suplantan
 LEGIT_BRANDS = {
     "bbva": ["bbva.mx", "bbva.com"],
@@ -145,6 +147,22 @@ async def analyze(raw_url: str) -> dict:
     except Exception:
         pass
 
+    # 8. URLScan.io — inteligencia colectiva (falla suave, no bloquea el resto)
+    urlscan_screenshot = None
+    try:
+        us = await urlscan.lookup_domain(full_domain)
+        if us.get("ok") and us.get("malicious", 0) > 0:
+            flags.append(
+                f"La comunidad de URLScan.io ya marcó este dominio como malicioso "
+                f"({us['malicious']} de {us['total']} análisis recientes)"
+            )
+            risk = "rojo"
+            confidence = max(confidence, 95)
+            category = category if category != "URL analizada" else "Dominio reportado como malicioso"
+            urlscan_screenshot = us.get("screenshot")
+    except Exception:
+        pass
+
     # Construye explicación
     if risk == "rojo":
         explanation = "Este link tiene señales fuertes de ser una estafa. NO hagas clic."
@@ -167,5 +185,6 @@ async def analyze(raw_url: str) -> dict:
             "domain": full_domain,
             "domain_age_days": domain_age_days,
             "uses_https": parsed.scheme == "https",
+            "urlscan_screenshot": urlscan_screenshot,
         },
     }

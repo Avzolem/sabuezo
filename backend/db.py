@@ -319,3 +319,73 @@ def scan_rows() -> list[dict]:
     rows = _fetch_all(client, "scans", "url,domain,score,created_at")
     rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
     return rows
+
+
+# ============================================================
+# Crowdsourcing de fraudes — base compartida que mejora con cada reporte
+# ============================================================
+def report_fraud(
+    indicator: str,
+    kind: str,
+    risk: Optional[str] = None,
+    category: Optional[str] = None,
+    sample: Optional[str] = None,
+) -> dict:
+    """Registra o incrementa un indicador de fraude (dominio/url/teléfono).
+
+    No atómico (lookup + update/insert), suficiente para el volumen actual.
+    Cada vez que alguien reporta el mismo fraude, sube `hits`.
+    """
+    from datetime import datetime, timezone
+    client = get_client()
+    now = datetime.now(timezone.utc).isoformat()
+    indicator = (indicator or "").strip().lower()
+    if not indicator:
+        return {}
+
+    existing = (
+        client.table("known_frauds").select("hits").eq("indicator", indicator).limit(1).execute()
+    )
+    if existing.data:
+        payload = {"hits": (existing.data[0].get("hits") or 0) + 1, "last_seen": now}
+        if risk:
+            payload["risk"] = risk
+        if category:
+            payload["category"] = category
+        if sample:
+            payload["sample"] = sample[:300]
+        res = client.table("known_frauds").update(payload).eq("indicator", indicator).execute()
+        return res.data[0] if res.data else {}
+
+    payload = {
+        "indicator": indicator,
+        "kind": kind,
+        "hits": 1,
+        "risk": risk,
+        "category": category,
+        "sample": (sample or "")[:300] or None,
+        "last_seen": now,
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
+    res = client.table("known_frauds").insert(payload).execute()
+    return res.data[0] if res.data else {}
+
+
+def lookup_fraud(indicator: str) -> Optional[dict]:
+    """Devuelve el registro de un indicador si ya fue reportado antes."""
+    client = get_client()
+    indicator = (indicator or "").strip().lower()
+    if not indicator:
+        return None
+    res = client.table("known_frauds").select("*").eq("indicator", indicator).limit(1).execute()
+    return res.data[0] if res.data else None
+
+
+def top_frauds(kind: Optional[str] = None, limit: int = 10) -> list[dict]:
+    """Top de fraudes más reportados (para stats/dashboard)."""
+    client = get_client()
+    q = client.table("known_frauds").select("indicator,kind,hits,risk,category,last_seen")
+    if kind:
+        q = q.eq("kind", kind)
+    res = q.order("hits", desc=True).limit(limit).execute()
+    return res.data or []

@@ -26,11 +26,18 @@ KNOWN_MX_LEAKS = [
 
 
 def normalize_phone(raw: str) -> str:
-    """Quita espacios, guiones, paréntesis. No fuerza +52: el usuario decide."""
-    digits = re.sub(r"[^\d+]", "", raw or "")
-    # Si el usuario manda 10 dígitos (MX local), agrega 52 al frente
+    """Normaliza a E.164 sin '+'. Maneja los formatos MX comunes.
+
+    - 10 dígitos (local MX)          -> anteponer lada país 52
+    - 521 + 10 dígitos (móvil viejo) -> quitar el '1' heredado (MX lo eliminó
+      en 2019); así coincide con el E.164 actual que usan las bases de fugas.
+      Es justo el formato que llega del JID de WhatsApp (ej. 5216251217055).
+    """
+    digits = re.sub(r"[^\d+]", "", raw or "").lstrip("+")
     if re.fullmatch(r"\d{10}", digits):
         digits = "52" + digits
+    if re.fullmatch(r"521\d{10}", digits):
+        digits = "52" + digits[3:]
     return digits
 
 

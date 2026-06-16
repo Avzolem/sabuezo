@@ -108,6 +108,43 @@ const WELCOME_GREETINGS = [
   '🐕 *Buenas, soy Sabuezo*',
 ];
 
+// Spintax del cuerpo del saludo. El mensaje de bienvenida es lo que más se
+// envía: si el bloque entero sale idéntico cada vez, es una huella de bot.
+// Rotamos intro, subtítulos, ejemplos (subconjunto barajado) y cierre.
+const WELCOME_INTROS = [
+  'Soy el guardián anti-estafa de las PyMEs de LATAM. *No soy un chat* — soy un detector. Reenvíame solo cosas sospechosas.',
+  'Soy tu detector anti-fraude para PyMEs de LATAM. *No platico* — analizo. Mándame solo lo que te huela raro.',
+  'Cuido a las PyMEs de LATAM contra las estafas. *No soy un asistente de chat*, soy un radar de fraudes. Reenvíame lo sospechoso.',
+  'Mi trabajo es olfatear estafas para las PyMEs de LATAM. *No converso* — investigo. Pásame solo lo que te parezca raro.',
+];
+
+const WELCOME_EXAMPLE_HEADERS = [
+  '*📩 Ejemplos de lo que detecto:*',
+  '*📩 Esto es lo que cazo:*',
+  '*📩 Cosas que puedo revisar por ti:*',
+  '*📩 Algunas trampas que reconozco:*',
+];
+
+const WELCOME_EXAMPLES_POOL = [
+  '🏛️ _"Su factura del SAT está vencida, pague aquí: bit.ly/sat-pago..."_',
+  '🏦 _"BBVA: detectamos actividad sospechosa, verifica tu cuenta..."_',
+  '📦 _"Soy el nuevo proveedor, te paso mi nueva CLABE para el depósito..."_',
+  '📞 _"Tu hijo está secuestrado, deposita ya o..."_',
+  '💼 _"Felicidades, fuiste seleccionado para una vacante, solo deposita..."_',
+];
+
+const WELCOME_CLOSERS = ['*Comandos rápidos:*', '*Atajos:*', '*También puedo:*'];
+
+// Devuelve n elementos al azar de un arreglo (Fisher-Yates parcial).
+const sample = (arr, n) => {
+  const c = [...arr];
+  for (let i = c.length - 1; i > 0; i--) {
+    const j = rand(0, i + 1);
+    [c[i], c[j]] = [c[j], c[i]];
+  }
+  return c.slice(0, n);
+};
+
 // Firma variada: el mismo pie de página idéntico en cada respuesta es,
 // por sí solo, una huella de bot. Rotamos entre varias redacciones.
 const SIGNATURES = [
@@ -130,17 +167,19 @@ function searchingMsg(target) {
 }
 
 function welcomeMessage() {
-  const greeting = WELCOME_GREETINGS[rand(0, WELCOME_GREETINGS.length)];
+  const greeting = pick(WELCOME_GREETINGS);
+  const intro = pick(WELCOME_INTROS);
+  const exHeader = pick(WELCOME_EXAMPLE_HEADERS);
+  // 3 ejemplos barajados del pool + la línea de screenshots siempre al final.
+  const examples = sample(WELCOME_EXAMPLES_POOL, 3);
+  const closer = pick(WELCOME_CLOSERS);
   return (
     `${greeting}\n\n` +
-    `Soy el guardián anti-estafa de las PyMEs de LATAM. *No soy un chat* — soy un detector. Reenvíame solo cosas sospechosas.\n\n` +
-    `*📩 Ejemplos de lo que detecto:*\n\n` +
-    `🏛️ _"Su factura del SAT está vencida, pague aquí: bit.ly/sat-pago..."_\n\n` +
-    `🏦 _"BBVA: detectamos actividad sospechosa, verifica tu cuenta..."_\n\n` +
-    `📦 _"Soy el nuevo proveedor, te paso mi nueva CLABE para el depósito..."_\n\n` +
-    `📞 _"Tu hijo está secuestrado, deposita ya o..."_\n\n` +
-    `🖼️ Screenshots de mensajes o correos raros que recibiste.\n\n` +
-    `*Comandos rápidos:*\n` +
+    `${intro}\n\n` +
+    `${exHeader}\n\n` +
+    examples.join('\n\n') +
+    `\n\n🖼️ Screenshots de mensajes o correos raros que recibiste.\n\n` +
+    `${closer}\n` +
     `• *registrar* — Vincula tu PyME y escanea tu sitio\n` +
     `• *correo tucorreo@dominio.com* — Revisa si está filtrado\n` +
     `• *numero 5512345678* — Revisa si tu número fue filtrado\n` +
@@ -177,12 +216,23 @@ const registrationState = new Map(); // jid → 'awaiting'
 
 const SEV_EMOJI = { critical: '🔴', high: '🟠', medium: '🟡', low: '🔵', info: 'ℹ️' };
 
+// Convierte el score 0-100 en una "boleta" A-F (estilo Mozilla Observatory),
+// legible para una PyME sin jerga técnica.
+function gradeFor(score) {
+  if (score >= 90) return { letra: 'A', emoji: '🟢', frase: 'Excelente — tu sitio está bien protegido' };
+  if (score >= 80) return { letra: 'B', emoji: '🟢', frase: 'Bien — solo un par de detalles por pulir' };
+  if (score >= 65) return { letra: 'C', emoji: '🟡', frase: 'Regular — hay huecos que conviene cerrar' };
+  if (score >= 50) return { letra: 'D', emoji: '🟠', frase: 'Deficiente — tu sitio tiene riesgos serios' };
+  return { letra: 'F', emoji: '🔴', frase: 'Reprobado — necesita atención urgente' };
+}
+
 function formatScanResult(scan) {
   const { score, summary, findings = [], domain, raw = {} } = scan;
-  const scoreEmoji = score >= 85 ? '🟢' : score >= 65 ? '🟡' : score >= 40 ? '🟠' : '🔴';
+  const g = gradeFor(score);
 
   let out = `🐕 *Diagnóstico de Seguridad — ${domain}*\n\n`;
-  out += `${scoreEmoji} *Score: ${score}/100*\n`;
+  out += `${g.emoji} *Calificación: ${g.letra}*  ·  ${score}/100\n`;
+  out += `_${g.frase}._\n`;
   out += `_${summary}_\n\n`;
 
   const critical = findings.filter(f => f.severity === 'critical');
@@ -275,6 +325,11 @@ function formatReply(result) {
     out += `\n`;
   }
   if (recommended_action) out += `👉 *Qué hacer:* ${recommended_action}\n`;
+  if (risk === 'rojo') {
+    out += `\n📢 *Repórtalo — proteges a otros:*\n`;
+    out += `• *CONDUSEF:* 55 53 400 999 · condusef.gob.mx\n`;
+    out += `• *Policía Cibernética* (Guardia Nacional): 088 · CERT-MX\n`;
+  }
   if (cross_insight?.message) {
     out += `\n🪄 *Insight de tu dominio:*\n${cross_insight.message}\n`;
     out += `Escribe *reporte* para ver tu diagnóstico de seguridad.\n`;
@@ -285,10 +340,10 @@ function formatReply(result) {
 
 function formatFullReport(scan) {
   const { score, summary, findings = [], domain } = scan;
-  const scoreEmoji = score >= 85 ? '🟢' : score >= 65 ? '🟡' : score >= 40 ? '🟠' : '🔴';
+  const g = gradeFor(score);
 
   let out = `🐕 *Reporte completo — ${domain}*\n\n`;
-  out += `${scoreEmoji} *Score: ${score}/100*\n_${summary}_\n\n`;
+  out += `${g.emoji} *Calificación: ${g.letra}*  ·  ${score}/100\n_${g.frase}._\n_${summary}_\n\n`;
 
   if (findings.length === 0) {
     out += `✅ Sin hallazgos. Tu sitio está bien protegido.\n`;

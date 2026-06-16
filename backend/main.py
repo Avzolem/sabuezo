@@ -92,6 +92,39 @@ class LidMapRequest(BaseModel):
     pushname: Optional[str] = None
 
 
+def _fraud_indicator(result):
+    """Extrae (indicador, kind) accionable de una detección, o (None, None).
+
+    Prioriza la URL de un QR (quishing) y luego el dominio de la URL analizada.
+    """
+    meta = result.get("metadata") or {}
+    qr_url = meta.get("qr_url")
+    if qr_url:
+        return qr_url, "url"
+    domain = meta.get("domain")
+    if domain:
+        return domain, "domain"
+    return None, None
+
+
+def _crowdsource_fraud(result, raw_content=""):
+    """Alimenta la base compartida (si es rojo) y enriquece con cuántos ya lo vieron."""
+    indicator, kind = _fraud_indicator(result)
+    if not indicator:
+        return
+    risk = result.get("risk", "amarillo")
+    prev = db.lookup_fraud(indicator)  # consulta antes de incrementar
+    if risk == "rojo":
+        db.report_fraud(indicator, kind, risk=risk,
+                        category=result.get("category"), sample=raw_content)
+    if prev and (prev.get("hits") or 0) >= 2:
+        result.setdefault("red_flags", [])
+        result["red_flags"].append(
+            f"🌐 Otras {prev['hits']} personas ya reportaron este mismo fraude a Sabuezo."
+        )
+        result["crowd_hits"] = prev["hits"]
+
+
 def _persist_detection_safe(user_jid, kind, result, raw_content="", pushname=None):
     """Wrap en try para que un fallo de DB no rompa la respuesta al usuario.
 
@@ -143,6 +176,8 @@ def _persist_detection_safe(user_jid, kind, result, raw_content="", pushname=Non
                             "ver cómo cerrar esa puerta."
                         ),
                     }
+        # Crowdsourcing: alimenta y consulta la base compartida de fraudes.
+        _crowdsource_fraud(result, raw_content)
     except Exception as e:
         print(f"[db] error guardando detección: {e}")
 
@@ -176,6 +211,16 @@ def _persist_breach_safe(kind, value, result, source=None, user_jid=None):
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "sabuezo"}
+
+
+@app.get("/fraud/stats")
+async def fraud_stats(kind: Optional[str] = None, x_internal_token: Optional[str] = Header(None)):
+    """Top de fraudes más reportados por la comunidad (crowdsourcing)."""
+    require_internal(x_internal_token)
+    try:
+        return {"ok": True, "top": db.top_frauds(kind=kind, limit=15)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/metrics")

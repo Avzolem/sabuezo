@@ -103,6 +103,24 @@ create table if not exists public.lid_map (
 create index if not exists idx_lid_map_phone on public.lid_map(phone);
 
 -- ============================================================
+-- Crowdsourcing de fraudes — base compartida que mejora con cada reporte
+-- Cada detección "rojo" con indicador claro (dominio/url/teléfono) suma aquí;
+-- cuando alguien vuelve a verlo, avisamos "N personas ya lo reportaron".
+-- ============================================================
+create table if not exists public.known_frauds (
+  indicator   text primary key,         -- dominio, url o teléfono normalizado
+  kind        text not null,            -- 'domain' | 'url' | 'phone'
+  hits        int  not null default 1,  -- cuántas veces se ha reportado/visto
+  risk        text,                     -- último nivel de riesgo asociado
+  category    text,                     -- categoría del fraude
+  sample      text,                     -- ejemplo del contenido (truncado)
+  first_seen  timestamptz not null default now(),
+  last_seen   timestamptz not null default now()
+);
+
+create index if not exists idx_known_frauds_kind on public.known_frauds(kind, hits desc);
+
+-- ============================================================
 -- RLS — permisivo para el hackathon (frontend lee con publishable key)
 -- El service_role / sb_secret SIEMPRE bypassa RLS, así que el backend
 -- puede escribir libremente sin policies de insert/update.
@@ -114,6 +132,8 @@ alter table public.breach_checks enable row level security;
 -- lid_map: SIN lectura pública. Contiene teléfonos en claro (PII).
 -- Solo el backend (service_role) la lee/escribe; bypassa RLS.
 alter table public.lid_map enable row level security;
+-- known_frauds: SIN lectura pública (puede contener teléfonos). Solo backend.
+alter table public.known_frauds enable row level security;
 
 -- Lectura pública (demo)
 drop policy if exists "public read pymes" on public.pymes;

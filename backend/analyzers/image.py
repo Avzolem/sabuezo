@@ -4,6 +4,10 @@ import json
 import re
 from anthropic import AsyncAnthropic
 
+from integrations import qr
+
+_RISK_ORDER = {"verde": 0, "amarillo": 1, "rojo": 2}
+
 client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 MODEL = "claude-sonnet-4-6"
@@ -69,9 +73,9 @@ async def analyze(image_base64: str, caption: str = "") -> dict:
         content = re.sub(r"\s*```$", "", content)
 
     try:
-        return json.loads(content)
+        result = json.loads(content)
     except json.JSONDecodeError:
-        return {
+        result = {
             "risk": "amarillo",
             "confidence": 50,
             "category": "Imagen no concluyente",
@@ -79,3 +83,35 @@ async def analyze(image_base64: str, caption: str = "") -> dict:
             "explanation": "No pude analizar la imagen con certeza. Si tienes duda, no actúes sobre ella.",
             "recommended_action": "Verifica directamente con la fuente oficial antes de hacer nada.",
         }
+
+    # Anti-quishing: si la imagen contiene un QR con URL, analízala de verdad
+    # y fusiona el veredicto (elevando el riesgo al mayor de los dos).
+    return await _augment_with_qr(image_base64, result)
+
+
+async def _augment_with_qr(image_base64: str, result: dict) -> dict:
+    try:
+        urls = qr.pick_urls(qr.decode_qr(image_base64))
+        if not urls:
+            return result
+        qr_url = urls[0]
+        from analyzers import url as url_analyzer
+        ua = await url_analyzer.analyze(qr_url)
+
+        result.setdefault("red_flags", [])
+        result["red_flags"].insert(0, f"📸➡️🔗 La imagen contiene un código QR que apunta a: {qr_url}")
+        for f in ua.get("red_flags", []):
+            result["red_flags"].append(f"(del QR) {f}")
+
+        if _RISK_ORDER.get(ua.get("risk"), 0) >= _RISK_ORDER.get(result.get("risk"), 0):
+            result["risk"] = ua.get("risk", result.get("risk"))
+            result["recommended_action"] = ua.get("recommended_action", result.get("recommended_action"))
+            result["confidence"] = max(result.get("confidence", 0), ua.get("confidence", 0))
+
+        cat = result.get("category") or "Imagen con QR"
+        if "QR" not in cat:
+            result["category"] = f"{cat} · contiene QR (quishing)"
+        result.setdefault("metadata", {})["qr_url"] = qr_url
+    except Exception:
+        pass
+    return result
