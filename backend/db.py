@@ -48,6 +48,41 @@ def upsert_pyme(
     return res.data[0] if res.data else {}
 
 
+def upsert_lid_map(
+    lid: str,
+    phone_jid: Optional[str] = None,
+    pushname: Optional[str] = None,
+) -> dict:
+    """Registra/actualiza el mapeo @lid → teléfono real.
+
+    Idempotente por `lid`. Conserva first_seen original y refresca last_seen.
+    `phone_jid` es el JID '...@s.whatsapp.net'; deriva `phone` ('+digits').
+    """
+    from datetime import datetime, timezone
+    client = get_client()
+
+    phone = None
+    if phone_jid and "@" in phone_jid:
+        digits = phone_jid.split("@", 1)[0]
+        if digits.isdigit():
+            phone = "+" + digits
+
+    now = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "lid": lid,
+        "phone_jid": phone_jid,
+        "phone": phone,
+        "pushname": pushname,
+        "last_seen": now,
+    }
+    # no pisar columnas con None (un mensaje sin pushname no debe borrar el previo)
+    payload = {k: v for k, v in payload.items() if v is not None}
+    payload["lid"] = lid  # garantiza la clave aunque todo lo demás sea None
+
+    res = client.table("lid_map").upsert(payload, on_conflict="lid").execute()
+    return res.data[0] if res.data else {}
+
+
 def get_pyme_by_jid(owner_jid: str) -> Optional[dict]:
     client = get_client()
     res = client.table("pymes").select("*").eq("owner_jid", owner_jid).limit(1).execute()

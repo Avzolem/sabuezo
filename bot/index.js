@@ -431,6 +431,34 @@ async function sendSafe(sock, jid, payload, label = '') {
   return _sendChain;
 }
 
+// Captura el mapeo @lid → teléfono real cuando WhatsApp expone sender_pn.
+// WhatsApp solo lo incluye en algunos mensajes (típicamente primer contacto o
+// cuando no estás guardado). Es fire-and-forget: nunca bloquea ni rompe el flujo.
+const _lidSeen = new Set(); // evita reenviar el mismo lid en la misma sesión
+function captureLidMapping(msg) {
+  try {
+    const k = msg.key || {};
+    const remote = k.remoteJid || '';
+    const phoneJid = k.senderPn; // '...@s.whatsapp.net' cuando está disponible
+    if (!remote.endsWith('@lid') || !phoneJid) return;
+    if (_lidSeen.has(remote)) return;
+    _lidSeen.add(remote);
+    api
+      .post('/lid-map', {
+        lid: remote,
+        phone_jid: phoneJid,
+        pushname: msg.pushName || null,
+      })
+      .then(() => console.log(`  🔗 lid-map ${remote} → ${phoneJid}`))
+      .catch((err) => {
+        _lidSeen.delete(remote); // permite reintentar en el próximo mensaje
+        console.error('  lid-map error:', err?.response?.data || err.message);
+      });
+  } catch (err) {
+    console.error('  captureLidMapping error:', err.message);
+  }
+}
+
 async function handleMessage(sock, msg) {
   const jid = msg.key.remoteJid;
   const kind = messageKind(msg);
@@ -438,6 +466,9 @@ async function handleMessage(sock, msg) {
 
   console.log(`[${new Date().toISOString()}] ← ${jid} (${kind}): ${text.slice(0, 80)}`);
   console.log(`  msg.key=${JSON.stringify(msg.key)}  pushName=${msg.pushName || ''}`);
+
+  // Captura el teléfono real detrás del @lid si WhatsApp lo expone (no bloquea).
+  captureLidMapping(msg);
 
   // Marca el mensaje entrante como leído (palomita azul), como haría un humano.
   await markReadSafe(sock, msg);

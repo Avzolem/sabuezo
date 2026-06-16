@@ -86,6 +86,23 @@ create index if not exists idx_breach_found  on public.breach_checks(found, crea
 create index if not exists idx_breach_domain on public.breach_checks(domain);
 
 -- ============================================================
+-- Mapeo LID → teléfono real
+-- WhatsApp moderno entrega el remitente como @lid (identidad opaca) y solo
+-- revela el teléfono (sender_pn) en algunos mensajes. Aquí acumulamos el
+-- mapeo cada vez que aparece, para des-anonimizar los @lid históricos.
+-- ============================================================
+create table if not exists public.lid_map (
+  lid         text primary key,               -- 1234567890@lid
+  phone_jid   text,                            -- 521614...@s.whatsapp.net
+  phone       text,                            -- +521614... (solo dígitos con +)
+  pushname    text,                            -- nombre visible en WhatsApp
+  first_seen  timestamptz not null default now(),
+  last_seen   timestamptz not null default now()
+);
+
+create index if not exists idx_lid_map_phone on public.lid_map(phone);
+
+-- ============================================================
 -- RLS — permisivo para el hackathon (frontend lee con publishable key)
 -- El service_role / sb_secret SIEMPRE bypassa RLS, así que el backend
 -- puede escribir libremente sin policies de insert/update.
@@ -94,6 +111,9 @@ alter table public.pymes enable row level security;
 alter table public.scans enable row level security;
 alter table public.phishing_detections enable row level security;
 alter table public.breach_checks enable row level security;
+-- lid_map: SIN lectura pública. Contiene teléfonos en claro (PII).
+-- Solo el backend (service_role) la lee/escribe; bypassa RLS.
+alter table public.lid_map enable row level security;
 
 -- Lectura pública (demo)
 drop policy if exists "public read pymes" on public.pymes;

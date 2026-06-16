@@ -86,6 +86,12 @@ class PymeRegisterRequest(BaseModel):
     pushname: Optional[str] = None
 
 
+class LidMapRequest(BaseModel):
+    lid: str
+    phone_jid: Optional[str] = None
+    pushname: Optional[str] = None
+
+
 def _persist_detection_safe(user_jid, kind, result, raw_content="", pushname=None):
     """Wrap en try para que un fallo de DB no rompa la respuesta al usuario.
 
@@ -281,6 +287,20 @@ async def pyme_register(req: PymeRegisterRequest, x_internal_token: Optional[str
             pushname=req.pushname,
         )
         return {"ok": True, "pyme": pyme}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/lid-map")
+async def lid_map(req: LidMapRequest, x_internal_token: Optional[str] = Header(None)):
+    require_internal(x_internal_token)
+    try:
+        row = db.upsert_lid_map(
+            lid=req.lid,
+            phone_jid=req.phone_jid,
+            pushname=req.pushname,
+        )
+        return {"ok": True, "lid_map": row}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
