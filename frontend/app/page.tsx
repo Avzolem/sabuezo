@@ -158,6 +158,13 @@ export default async function HomePage() {
                 >
                   🔑 Revisa tu contraseña
                 </Link>
+                <Link
+                  href="/ip"
+                  prefetch={false}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition px-5 py-2.5 text-sm text-amber-200"
+                >
+                  🌐 Revisa tu IP
+                </Link>
               </div>
 
               {/* Stats */}
