@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LATAM_PATHS } from "@/lib/latam-map";
-import { Shield, MessageCircleWarning, Globe, ArrowRight, Sparkles, Database } from "lucide-react";
+import { Shield, MessageCircleWarning, Globe, ArrowRight, Sparkles, Database, BarChart3 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -377,7 +377,15 @@ export default async function HomePage() {
           <div className="flex items-center gap-2">
             <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={24} height={24} className="size-6" />
             <span>
-              Sabuezo · Hecho con cariño por{" "}
+              Sabuezo ·{" "}
+              <Link
+                href="/metricas"
+                aria-label="Panel de métricas"
+                className="inline-flex align-middle text-zinc-600 hover:text-amber-400 transition"
+              >
+                <BarChart3 className="size-3.5" />
+              </Link>{" "}
+              Hecho con cariño por{" "}
               <a
                 href="https://avsolem.com"
                 target="_blank"

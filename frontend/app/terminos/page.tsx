@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft, FileText, AlertTriangle, Code2, Mail, Heart, ExternalLink } from "lucide-react";
+import { ArrowLeft, FileText, AlertTriangle, Code2, Mail, Heart, ExternalLink, BarChart3 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Términos — Sabuezo",
@@ -241,7 +241,15 @@ export default function TerminosPage() {
           <div className="flex items-center gap-2">
             <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={24} height={24} className="size-6" />
             <span>
-              Sabuezo · Hecho con cariño por{" "}
+              Sabuezo ·{" "}
+              <Link
+                href="/metricas"
+                aria-label="Panel de métricas"
+                className="inline-flex align-middle text-zinc-600 hover:text-amber-400 transition"
+              >
+                <BarChart3 className="size-3.5" />
+              </Link>{" "}
+              Hecho con cariño por{" "}
               <a
                 href="https://avsolem.com"
                 target="_blank"
