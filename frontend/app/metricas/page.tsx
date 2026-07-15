@@ -172,6 +172,22 @@ type IpData = {
   recent: IpRow[];
 };
 
+// Fecha/hora legible en horario de México (el panel es interno).
+function fmtHora(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("es-MX", {
+      timeZone: "America/Mexico_City",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return iso.slice(0, 16).replace("T", " ");
+  }
+}
+
 // Lee las visitas de /ip directamente de Supabase con service_role (bypassa RLS).
 async function getIpData(): Promise<IpData | null> {
   try {
@@ -408,7 +424,7 @@ export default async function MetricasPage({
                   />
                   <RankTable
                     title="IPs recientes"
-                    head={["IP", "Ubicación", "Señales"]}
+                    head={["IP", "Ubicación", "Señales", "Hora (MX)"]}
                     rows={ipData.recent.map((r) => [
                       r.ip ?? "—",
                       [r.city, r.country].filter(Boolean).join(", ") || "—",
@@ -421,6 +437,7 @@ export default async function MetricasPage({
                       ]
                         .filter(Boolean)
                         .join(" · ") || "limpia",
+                      fmtHora(r.created_at),
                     ])}
                     empty="Aún no hay visitas."
                   />
