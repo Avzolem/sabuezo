@@ -73,15 +73,36 @@ export default function EscanearPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url.trim() }),
+        // Un poco más que el AbortController del proxy (60s) para no cortar antes.
+        signal: AbortSignal.timeout(65000),
       });
-      const data = await res.json();
+      // Parseo defensivo: si Vercel corta la función, el cuerpo es HTML, no JSON.
+      const text = await res.text();
+      let data: { error?: string } & Record<string, unknown> = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
       if (!res.ok) {
-        setError(data.error || "Error desconocido");
+        setError(
+          data.error ||
+            "El servicio no está disponible en este momento. Intenta de nuevo en unos segundos."
+        );
       } else {
-        setResult(data);
+        setResult(data as unknown as ScanResult);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error de red");
+      // No exponer mensajes crudos (fetch failed / aborted): mapear a algo claro.
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        setError(
+          "El escaneo tardó demasiado y el servidor está ocupado. Intenta de nuevo."
+        );
+      } else {
+        setError(
+          "No pudimos conectar con el motor de análisis. Reintenta en un minuto."
+        );
+      }
     } finally {
       clearInterval(interval);
       setLoading(false);

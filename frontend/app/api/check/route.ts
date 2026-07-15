@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 const API_URL = process.env.INTERNAL_API_URL;
 const TOKEN = process.env.INTERNAL_API_TOKEN;
@@ -85,8 +86,9 @@ export async function POST(req: Request) {
 
     if (!upstream.ok) {
       const text = await upstream.text();
+      console.error(`[check] backend ${upstream.status}: ${text.slice(0, 300)}`);
       return NextResponse.json(
-        { error: `Backend respondió ${upstream.status}: ${text.slice(0, 200)}` },
+        { error: "El servicio de verificación no está disponible. Intenta de nuevo en un momento." },
         { status: 502 }
       );
     }
@@ -94,10 +96,15 @@ export async function POST(req: Request) {
     const data = await upstream.json();
     return NextResponse.json(data, { status: 200 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
+    const isAbort = e instanceof Error && e.name === "AbortError";
+    console.error(`[check] fallo de red: ${e instanceof Error ? e.message : "unknown"}`);
     return NextResponse.json(
-      { error: `No pude completar la verificación: ${msg}` },
-      { status: 500 }
+      {
+        error: isAbort
+          ? "La verificación tardó demasiado. Intenta de nuevo."
+          : "No pudimos conectar con el servicio. Reintenta en un minuto.",
+      },
+      { status: isAbort ? 504 : 502 }
     );
   }
 }

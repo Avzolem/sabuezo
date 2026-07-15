@@ -57,7 +57,9 @@ async function checkPasswordPwned(password: string): Promise<PasswordResult> {
   const hash = await sha1Hex(password);
   const prefix = hash.slice(0, 5);
   const suffix = hash.slice(5);
-  const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+  const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+    signal: AbortSignal.timeout(8000),
+  });
   if (!res.ok) throw new Error("No pude consultar la base de contraseñas.");
   const text = await res.text();
   for (const line of text.split("\n")) {
@@ -122,18 +124,35 @@ export default function FiltracionesPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: mode, value: value.trim() }),
+          signal: AbortSignal.timeout(35000),
         });
-        const data = await res.json();
+        // Parseo defensivo: si Vercel corta la función, el cuerpo es HTML, no JSON.
+        const text = await res.text();
+        let data: { error?: string } & Record<string, unknown> = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
         if (!res.ok) {
-          setError(data.error || "Error desconocido");
+          setError(
+            data.error ||
+              "El servicio no está disponible en este momento. Intenta de nuevo en unos segundos."
+          );
         } else if (mode === "email") {
-          setEmailRes(data);
+          setEmailRes(data as unknown as EmailResult);
         } else {
-          setPhoneRes(data);
+          setPhoneRes(data as unknown as PhoneResult);
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error de red");
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        setError("La consulta tardó demasiado. Intenta de nuevo en un momento.");
+      } else if (err instanceof Error && err.message.includes("contraseñas")) {
+        setError(err.message);
+      } else {
+        setError("No pudimos conectar con el servicio. Reintenta en un minuto.");
+      }
     } finally {
       setLoading(false);
     }

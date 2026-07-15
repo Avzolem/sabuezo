@@ -12,3 +12,4 @@ beautifulsoup4==4.12.3
 openpyxl==3.1.5
 Pillow==11.0.0
 pyzbar==0.1.9
+slowapi==0.1.9

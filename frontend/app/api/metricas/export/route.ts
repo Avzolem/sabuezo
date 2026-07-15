@@ -12,7 +12,8 @@ function authToken(): string {
 }
 
 async function isAuthed(): Promise<boolean> {
-  if (!process.env.METRICAS_PASSWORD) return true;
+  // Fail-closed: sin password configurada, denegar (nunca exponer PII abierta).
+  if (!process.env.METRICAS_PASSWORD) return false;
   const c = await cookies();
   return c.get(AUTH_COOKIE)?.value === authToken();
 }

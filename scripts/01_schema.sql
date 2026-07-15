@@ -136,16 +136,16 @@ alter table public.lid_map enable row level security;
 alter table public.known_frauds enable row level security;
 
 -- Lectura pública (demo)
+-- pymes y phishing_detections: SIN lectura pública. Contienen PII
+-- (owner_email, owner_jid, user_jid/teléfono, pushname, raw_content). El
+-- frontend las lee server-side con service_role (lib/supabase-admin.ts).
+-- Cerrado tras auditoría de seguridad (C1 fuga de PII / A4).
 drop policy if exists "public read pymes" on public.pymes;
-create policy "public read pymes" on public.pymes
-  for select using (true);
+drop policy if exists "public read phishing" on public.phishing_detections;
 
+-- scans no tiene PII personal (hallazgos técnicos del sitio) → lectura pública OK.
 drop policy if exists "public read scans" on public.scans;
 create policy "public read scans" on public.scans
-  for select using (true);
-
-drop policy if exists "public read phishing" on public.phishing_detections;
-create policy "public read phishing" on public.phishing_detections
   for select using (true);
 
 -- breach_checks: SIN lectura pública. Contiene PII en claro (correos/teléfonos).
@@ -155,7 +155,9 @@ create policy "public read phishing" on public.phishing_detections
 -- ============================================================
 -- Vista útil para el dashboard
 -- ============================================================
-create or replace view public.pyme_overview as
+-- security_invoker: la vista respeta las RLS policies del que consulta (no
+-- las del owner), para que no filtre pymes con la anon key (A4).
+create or replace view public.pyme_overview with (security_invoker = on) as
 select
   p.id,
   p.name,
@@ -172,3 +174,33 @@ select
   (select count(*) from public.phishing_detections d
      where d.pyme_id = p.id) as total_detections
 from public.pymes p;
+
+-- ============================================================
+-- Visitas a /ip — IP pública + geolocalización + reputación
+-- Registra a quienes entran a sabuezo.com/ip. Contiene PII (IPs) →
+-- RLS habilitado SIN lectura pública. Solo el servidor (service_role) escribe.
+-- ============================================================
+create table if not exists public.ip_visits (
+  id           uuid primary key default gen_random_uuid(),
+  ip           text,
+  country      text,
+  region       text,
+  city         text,
+  latitude     double precision,
+  longitude    double precision,
+  isp          text,
+  is_proxy     boolean,                          -- VPN / proxy / Tor (ip-api)
+  is_hosting   boolean,                          -- datacenter / hosting (ip-api)
+  is_mobile    boolean,
+  abuse_score  int,                              -- AbuseIPDB 0-100 (null sin key)
+  leak_found   boolean,                          -- reservado
+  user_agent   text,
+  referer      text,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists idx_ip_visits_created on public.ip_visits(created_at desc);
+create index if not exists idx_ip_visits_ip on public.ip_visits(ip, created_at desc);
+
+alter table public.ip_visits enable row level security;
+-- Sin policy de select → la anon key no puede leer las IPs de los visitantes.

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// El escaneo real tarda 15-40s; sin esto Vercel corta la función a ~10s (504 HTML).
+export const maxDuration = 60;
 
 const API_URL = process.env.INTERNAL_API_URL;
 const TOKEN = process.env.INTERNAL_API_TOKEN;
@@ -76,9 +78,11 @@ export async function POST(req: Request) {
     clearTimeout(tid);
 
     if (!upstream.ok) {
+      // Log crudo en el server; al cliente solo un mensaje limpio.
       const text = await upstream.text();
+      console.error(`[scan] backend ${upstream.status}: ${text.slice(0, 300)}`);
       return NextResponse.json(
-        { error: `Backend respondió ${upstream.status}: ${text.slice(0, 200)}` },
+        { error: "El motor de análisis no pudo procesar el sitio. Intenta de nuevo en un momento." },
         { status: 502 }
       );
     }
@@ -86,10 +90,15 @@ export async function POST(req: Request) {
     const data = await upstream.json();
     return NextResponse.json(data, { status: 200 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "unknown";
+    const isAbort = e instanceof Error && e.name === "AbortError";
+    console.error(`[scan] fallo de red: ${e instanceof Error ? e.message : "unknown"}`);
     return NextResponse.json(
-      { error: `No pude completar el escaneo: ${msg}` },
-      { status: 500 }
+      {
+        error: isAbort
+          ? "El escaneo tardó demasiado, el servidor está ocupado. Intenta de nuevo."
+          : "No pudimos conectar con el motor de análisis. Reintenta en un minuto.",
+      },
+      { status: isAbort ? 504 : 502 }
     );
   }
 }

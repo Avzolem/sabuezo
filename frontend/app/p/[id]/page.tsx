@@ -1,4 +1,5 @@
-import { supabase, type Pyme, type Scan, type PhishingDetection, type Finding } from "@/lib/supabase";
+import { type Pyme, type Scan, type PhishingDetection, type Finding } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -26,12 +27,18 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
+// Distingue "no existe" (→ 404) de "falló la consulta" (→ error, reintentable).
+class DataUnavailableError extends Error {}
+
 async function loadData(id: string) {
-  const { data: pyme } = await supabase
+  const supabase = getSupabaseAdmin();
+  const { data: pyme, error: pymeErr } = await supabase
     .from("pymes")
     .select("*")
     .eq("id", id)
     .maybeSingle();
+  // Un error de red/DB NO es un 404: no ocultar la caída como "no encontrado".
+  if (pymeErr) throw new DataUnavailableError(pymeErr.message);
   if (!pyme) return null;
 
   const { data: scan } = await supabase

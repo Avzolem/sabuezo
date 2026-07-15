@@ -16,11 +16,17 @@ from pathlib import Path
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 import io
-from fastapi import FastAPI, Header, HTTPException
+import hmac
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from analyzers import text as text_analyzer
 from analyzers import image as image_analyzer
@@ -29,20 +35,49 @@ from analyzers import scanner as site_scanner
 from analyzers import breaches as breach_checker
 import db
 
-INTERNAL_TOKEN = os.getenv("INTERNAL_API_TOKEN", "dev-token")
+# El token interno es obligatorio: sin él, el backend (expuesto a internet vía
+# Tailscale Funnel) quedaría abierto. Fallamos al arrancar en vez de usar un
+# default débil.
+INTERNAL_TOKEN = os.getenv("INTERNAL_API_TOKEN")
+if not INTERNAL_TOKEN:
+    raise RuntimeError(
+        "INTERNAL_API_TOKEN no está definido. Configúralo en el .env antes de arrancar el backend."
+    )
 
-app = FastAPI(title="Sabuezo API", version="0.1.0")
+# Límite máximo de la imagen base64 (~10 MB de payload base64 ≈ 7.5 MB binario).
+MAX_IMAGE_B64_BYTES = 10 * 1024 * 1024
+
+# Rate limiting por IP (denial-of-wallet: /analyze/* pega a Anthropic, de pago).
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(
+    title="Sabuezo API",
+    version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+ALLOWED_ORIGINS = [
+    "https://sabuezo.com",
+    "https://www.sabuezo.com",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 
 def require_internal(x_internal_token: Optional[str] = Header(None)):
-    if x_internal_token != INTERNAL_TOKEN:
+    # Comparación de tiempo constante para no filtrar el token por timing.
+    if not x_internal_token or not hmac.compare_digest(x_internal_token, INTERNAL_TOKEN):
         raise HTTPException(status_code=401, detail="Invalid internal token")
 
 
@@ -297,7 +332,8 @@ async def metrics_export(x_internal_token: Optional[str] = Header(None)):
 
 
 @app.post("/analyze/text")
-async def analyze_text(req: TextRequest, x_internal_token: Optional[str] = Header(None)):
+@limiter.limit("30/minute")
+async def analyze_text(request: Request, req: TextRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
     result = await text_analyzer.analyze(req.text)
     _persist_detection_safe(req.user_id, "text", result, raw_content=req.text, pushname=req.pushname)
@@ -305,8 +341,12 @@ async def analyze_text(req: TextRequest, x_internal_token: Optional[str] = Heade
 
 
 @app.post("/analyze/image")
-async def analyze_image(req: ImageRequest, x_internal_token: Optional[str] = Header(None)):
+@limiter.limit("10/minute")
+async def analyze_image(request: Request, req: ImageRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
+    # Rechaza payloads gigantes (DoS): la imagen base64 no puede ser ilimitada.
+    if len(req.image_base64 or "") > MAX_IMAGE_B64_BYTES:
+        raise HTTPException(status_code=413, detail="Imagen demasiado grande")
     result = await image_analyzer.analyze(req.image_base64, caption=req.caption or "")
     _persist_detection_safe(req.user_id, "image", result, raw_content=req.caption or "", pushname=req.pushname)
     return result
@@ -351,7 +391,8 @@ async def lid_map(req: LidMapRequest, x_internal_token: Optional[str] = Header(N
 
 
 @app.post("/check/email")
-async def check_email_breach(req: BreachCheckRequest, x_internal_token: Optional[str] = Header(None)):
+@limiter.limit("30/minute")
+async def check_email_breach(request: Request, req: BreachCheckRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
     value = (req.value or "").strip().lower()
     result = await breach_checker.check_email(value)
@@ -361,7 +402,8 @@ async def check_email_breach(req: BreachCheckRequest, x_internal_token: Optional
 
 
 @app.post("/check/phone")
-async def check_phone_breach(req: BreachCheckRequest, x_internal_token: Optional[str] = Header(None)):
+@limiter.limit("30/minute")
+async def check_phone_breach(request: Request, req: BreachCheckRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
     value = breach_checker.normalize_phone(req.value)
     result = await breach_checker.check_phone(req.value)
@@ -381,7 +423,8 @@ async def pyme_last_scan(jid: str, x_internal_token: Optional[str] = Header(None
 
 
 @app.post("/scan")
-async def scan_site(req: ScanRequest, x_internal_token: Optional[str] = Header(None)):
+@limiter.limit("30/minute")
+async def scan_site(request: Request, req: ScanRequest, x_internal_token: Optional[str] = Header(None)):
     require_internal(x_internal_token)
     result = await site_scanner.scan(req.url, owner_email=req.owner_email)
 

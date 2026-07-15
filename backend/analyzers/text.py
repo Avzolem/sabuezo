@@ -4,7 +4,7 @@ import json
 import re
 from anthropic import AsyncAnthropic
 
-client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=25.0, max_retries=1)
 
 MODEL = "claude-haiku-4-5-20251001"
 
@@ -96,14 +96,35 @@ async def analyze(text: str) -> dict:
         f"Responde solo con el JSON."
     )
 
-    resp = await client.messages.create(
-        model=MODEL,
-        max_tokens=600,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
+    # Resultado degradado seguro si Claude no responde (timeout, 429, 529, red)
+    # o si la respuesta viene vacía/malformada. Nunca propagamos la excepción:
+    # el backend corre en un solo event loop y un 500 aquí rompería la request.
+    _degraded = {
+        "risk": "amarillo",
+        "confidence": 40,
+        "category": "Análisis no disponible",
+        "red_flags": hints,
+        "explanation": "No pude analizar el mensaje en este momento (servicio saturado o sin conexión). Trátalo con cuidado.",
+        "recommended_action": "Si tienes duda, NO respondas ni hagas clic en links; verifica por otro medio.",
+    }
 
-    content = resp.content[0].text.strip()
+    try:
+        resp = await client.messages.create(
+            model=MODEL,
+            max_tokens=600,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+    except Exception as e:
+        print(f"[text] error llamando a Anthropic: {e}")
+        return _degraded
+
+    try:
+        content = resp.content[0].text.strip()
+    except (IndexError, AttributeError) as e:
+        print(f"[text] respuesta de Anthropic vacía/malformada: {e}")
+        return _degraded
+
     # Quita posibles fences de markdown
     if content.startswith("```"):
         content = re.sub(r"^```(?:json)?\s*", "", content)

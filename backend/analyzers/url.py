@@ -1,4 +1,5 @@
 """Analizador de URLs — verifica si un link es phishing usando heurísticas + WHOIS."""
+import asyncio
 import re
 import socket
 from datetime import datetime, timezone
@@ -127,11 +128,19 @@ async def analyze(raw_url: str) -> dict:
         risk = "rojo"
         confidence = max(confidence, 92)
 
-    # 7. WHOIS — edad del dominio
+    # 7. WHOIS — edad del dominio.
+    # La llamada de python-whois es SÍNCRONA y bloqueante (I/O de red), y esta
+    # función corre en el event loop de uvicorn. Se ejecuta en un executor y con
+    # timeout para no congelar TODAS las requests. Si expira o falla, degrada a
+    # domain_age_days=None sin romper el resto del análisis.
     domain_age_days = None
     try:
         if ext.suffix:
-            w = whois.whois(full_domain)
+            loop = asyncio.get_event_loop()
+            w = await asyncio.wait_for(
+                loop.run_in_executor(None, whois.whois, full_domain),
+                timeout=6,
+            )
             created = w.creation_date
             if isinstance(created, list):
                 created = created[0]
@@ -144,8 +153,8 @@ async def analyze(raw_url: str) -> dict:
                         risk = "amarillo"
                     elif risk == "amarillo":
                         risk = "rojo"
-    except Exception:
-        pass
+    except (asyncio.TimeoutError, Exception):
+        domain_age_days = None
 
     # 8. URLScan.io — inteligencia colectiva (falla suave, no bloquea el resto)
     urlscan_screenshot = None

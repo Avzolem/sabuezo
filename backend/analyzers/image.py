@@ -8,7 +8,7 @@ from integrations import qr
 
 _RISK_ORDER = {"verde": 0, "amarillo": 1, "rojo": 2}
 
-client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=25.0, max_retries=1)
 
 MODEL = "claude-sonnet-4-6"
 
@@ -45,29 +45,46 @@ async def analyze(image_base64: str, caption: str = "") -> dict:
         user_text += f"\n\nEl usuario la envió con este texto: '{caption}'."
     user_text += "\n\nResponde solo con el JSON."
 
-    resp = await client.messages.create(
-        model=MODEL,
-        max_tokens=800,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": image_base64,
-                        },
-                    },
-                    {"type": "text", "text": user_text},
-                ],
-            }
-        ],
-    )
+    # Resultado degradado seguro si Claude no responde (timeout, 429, 529, red)
+    # o si la respuesta viene vacía/malformada. Nunca propagamos la excepción:
+    # el backend corre en un solo event loop y un 500 aquí rompería la request.
+    _degraded = {
+        "risk": "amarillo",
+        "confidence": 40,
+        "category": "Análisis no disponible",
+        "red_flags": [],
+        "explanation": "No pude analizar la imagen en este momento (servicio saturado o sin conexión). Trátala con cuidado.",
+        "recommended_action": "Verifica directamente con la fuente oficial antes de hacer nada.",
+    }
 
-    content = resp.content[0].text.strip()
+    try:
+        resp = await client.messages.create(
+            model=MODEL,
+            max_tokens=800,
+            system=SYSTEM_PROMPT,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_base64,
+                            },
+                        },
+                        {"type": "text", "text": user_text},
+                    ],
+                }
+            ],
+        )
+        content = resp.content[0].text.strip()
+    except (Exception, IndexError, AttributeError) as e:
+        print(f"[image] error llamando a Anthropic: {e}")
+        # Aún intentamos enriquecer con el QR (no depende de Claude).
+        return await _augment_with_qr(image_base64, dict(_degraded))
+
     if content.startswith("```"):
         content = re.sub(r"^```(?:json)?\s*", "", content)
         content = re.sub(r"\s*```$", "", content)

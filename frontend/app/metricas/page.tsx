@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import {
   ArrowLeft,
   BarChart3,
@@ -39,15 +39,25 @@ function authToken(): string {
 }
 
 async function isAuthed(): Promise<boolean> {
-  if (!process.env.METRICAS_PASSWORD) return true; // sin pass configurada → abierto
+  // Fail-closed: sin password configurada, denegar (nunca exponer PII abierta).
+  if (!process.env.METRICAS_PASSWORD) return false;
   const c = await cookies();
-  return c.get(AUTH_COOKIE)?.value === authToken();
+  const got = c.get(AUTH_COOKIE)?.value || "";
+  const want = authToken();
+  // Comparación de tiempo constante (ambos son hex de longitud fija).
+  if (got.length !== want.length) return false;
+  return timingSafeEqual(Buffer.from(got), Buffer.from(want));
 }
 
 async function login(formData: FormData) {
   "use server";
   const pass = String(formData.get("password") || "");
-  if (pass && pass === (process.env.METRICAS_PASSWORD || "")) {
+  const expected = process.env.METRICAS_PASSWORD || "";
+  const ok =
+    expected.length > 0 &&
+    pass.length === expected.length &&
+    timingSafeEqual(Buffer.from(pass), Buffer.from(expected));
+  if (ok) {
     const c = await cookies();
     c.set(AUTH_COOKIE, authToken(), {
       httpOnly: true,

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LATAM_PATHS } from "@/lib/latam-map";
 import { Shield, MessageCircleWarning, Globe, ArrowRight, Sparkles, Database } from "lucide-react";
 import Image from "next/image";
@@ -50,6 +50,7 @@ const COUNTRY_GRID = [
 
 async function getStats() {
   try {
+    const supabase = getSupabaseAdmin();
     const [{ count: pymes }, { count: dets }, { count: rojos }] = await Promise.all([
       supabase.from("pymes").select("*", { count: "exact", head: true }),
       supabase.from("phishing_detections").select("*", { count: "exact", head: true }),
@@ -90,6 +91,7 @@ export default async function HomePage() {
             <nav className="hidden md:flex items-center gap-6 text-sm text-zinc-400">
               <Link href="/escanear" className="hover:text-white transition">Escanear</Link>
               <Link href="/filtraciones" className="hover:text-white transition">Filtraciones</Link>
+              <Link href="/ip" prefetch={false} className="hover:text-white transition">Mi IP</Link>
               <a href="#como-funciona" className="hover:text-white transition">¿Cómo funciona?</a>
               <a href="#por-que" className="hover:text-white transition">¿Por qué?</a>
               <Link href="/pitch" className="hover:text-white transition">Pitch</Link>
