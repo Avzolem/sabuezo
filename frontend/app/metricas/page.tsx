@@ -18,7 +18,12 @@ import {
   Lock,
   FileSpreadsheet,
   LogOut,
+  MapPin,
+  Network,
+  ShieldAlert,
 } from "lucide-react";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import IpMap, { type MapPoint } from "./IpMap";
 
 export const metadata: Metadata = {
   title: "Métricas — Sabuezo",
@@ -142,6 +147,100 @@ async function apiGet<T>(path: string): Promise<T | null> {
 const getMetrics = () => apiGet<Metrics>("/metrics");
 const getDetail = () => apiGet<Detail>("/metrics/detail");
 
+type IpRow = {
+  ip: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  isp: string | null;
+  is_proxy: boolean | null;
+  is_hosting: boolean | null;
+  abuse_score: number | null;
+  created_at: string;
+};
+
+type IpData = {
+  total: number;
+  uniqueIps: number;
+  proxies: number;
+  hosting: number;
+  risky: number;
+  byCountry: { country: string; visitas: number }[];
+  points: MapPoint[];
+  recent: IpRow[];
+};
+
+// Lee las visitas de /ip directamente de Supabase con service_role (bypassa RLS).
+async function getIpData(): Promise<IpData | null> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data } = await supabase
+      .from("ip_visits")
+      .select(
+        "ip,country,region,city,latitude,longitude,isp,is_proxy,is_hosting,abuse_score,created_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    const rows = (data ?? []) as IpRow[];
+
+    const isRisky = (r: IpRow) =>
+      r.is_proxy === true ||
+      r.is_hosting === true ||
+      (typeof r.abuse_score === "number" && r.abuse_score >= 25);
+
+    // Agregado por país.
+    const countryMap = new Map<string, number>();
+    for (const r of rows) {
+      const c = r.country || "??";
+      countryMap.set(c, (countryMap.get(c) || 0) + 1);
+    }
+    const byCountry = [...countryMap.entries()]
+      .map(([country, visitas]) => ({ country, visitas }))
+      .sort((a, b) => b.visitas - a.visitas)
+      .slice(0, 12);
+
+    // Puntos del mapa: agrupados por coords redondeadas (~ciudad) para no
+    // amontonar; el radio refleja el volumen. Ubicación aproximada, no exacta.
+    const ptMap = new Map<
+      string,
+      { lat: number; lon: number; city: string | null; country: string | null; count: number; risky: boolean }
+    >();
+    for (const r of rows) {
+      if (typeof r.latitude !== "number" || typeof r.longitude !== "number") continue;
+      const key = `${r.latitude.toFixed(1)},${r.longitude.toFixed(1)}`;
+      const prev = ptMap.get(key);
+      if (prev) {
+        prev.count += 1;
+        prev.risky = prev.risky || isRisky(r);
+      } else {
+        ptMap.set(key, {
+          lat: r.latitude,
+          lon: r.longitude,
+          city: r.city,
+          country: r.country,
+          count: 1,
+          risky: isRisky(r),
+        });
+      }
+    }
+
+    return {
+      total: rows.length,
+      uniqueIps: new Set(rows.map((r) => r.ip).filter(Boolean)).size,
+      proxies: rows.filter((r) => r.is_proxy === true).length,
+      hosting: rows.filter((r) => r.is_hosting === true).length,
+      risky: rows.filter(isRisky).length,
+      byCountry,
+      points: [...ptMap.values()],
+      recent: rows.slice(0, 40),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default async function MetricasPage({
   searchParams,
 }: {
@@ -152,7 +251,11 @@ export default async function MetricasPage({
     return <LoginGate error={sp.error === "1"} />;
   }
 
-  const [m, detail] = await Promise.all([getMetrics(), getDetail()]);
+  const [m, detail, ipData] = await Promise.all([
+    getMetrics(),
+    getDetail(),
+    getIpData(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[var(--color-background)] grain">
@@ -261,6 +364,69 @@ export default async function MetricasPage({
               ])}
               empty="Aún no hay escaneos."
             />
+
+            {/* Visitas a /ip — geolocalización */}
+            <div className="mt-16 flex items-center gap-2">
+              <MapPin className="size-5 text-amber-400" />
+              <h2 className="text-xl font-semibold tracking-tight">
+                Visitas a /ip · Geolocalización
+              </h2>
+            </div>
+            <p className="mt-2 text-sm text-zinc-500">
+              Ubicación aproximada (nivel ciudad, por IP — no es exacta) de quienes
+              entran a{" "}
+              <Link href="/ip" className="text-amber-400 hover:underline">
+                /ip
+              </Link>
+              . Los círculos ámbar marcan IPs de VPN/proxy o centros de datos.
+            </p>
+
+            {!ipData ? (
+              <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 text-sm text-zinc-400">
+                No pude cargar las visitas ahora mismo.
+              </div>
+            ) : (
+              <>
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <Kpi icon={Users} label="Visitas totales" value={ipData.total} accent />
+                  <Kpi icon={Network} label="IPs únicas" value={ipData.uniqueIps} />
+                  <Kpi icon={ShieldAlert} label="VPN / Proxy" value={ipData.proxies} />
+                  <Kpi icon={Database} label="Centro de datos" value={ipData.hosting} />
+                  <Kpi icon={AlertTriangle} label="IPs a revisar" value={ipData.risky} />
+                </div>
+
+                <div className="mt-6">
+                  <IpMap points={ipData.points} />
+                </div>
+
+                <div className="mt-8 grid lg:grid-cols-2 gap-8">
+                  <RankTable
+                    title="Visitas por país"
+                    head={["País", "Visitas"]}
+                    rows={ipData.byCountry.map((c) => [c.country, c.visitas])}
+                    empty="Aún no hay visitas."
+                  />
+                  <RankTable
+                    title="IPs recientes"
+                    head={["IP", "Ubicación", "Señales"]}
+                    rows={ipData.recent.map((r) => [
+                      r.ip ?? "—",
+                      [r.city, r.country].filter(Boolean).join(", ") || "—",
+                      [
+                        r.is_proxy ? "VPN" : null,
+                        r.is_hosting ? "Datacenter" : null,
+                        typeof r.abuse_score === "number" && r.abuse_score >= 25
+                          ? `abuso ${r.abuse_score}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "limpia",
+                    ])}
+                    empty="Aún no hay visitas."
+                  />
+                </div>
+              </>
+            )}
 
             {/* Detalle: correos y teléfonos en claro */}
             <div className="mt-16 flex items-center gap-2">
