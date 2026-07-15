@@ -348,18 +348,33 @@ export default async function MetricasPage({
               <BreachCard icon={Phone} title="Teléfonos" stat={m.filtraciones_por_tipo.phone} />
             </div>
 
-            {/* Serie diaria */}
-            <h2 className="mt-14 text-xl font-semibold tracking-tight">Consultas por día</h2>
-            <SerieDiaria data={m.serie_diaria} />
-
-            {/* Tablas lado a lado */}
-            <div className="mt-14 grid lg:grid-cols-2 gap-8">
+            {/* Actividad y consultas — grid 2x2 */}
+            <h2 className="mt-14 text-xl font-semibold tracking-tight">Actividad y consultas</h2>
+            <div className="mt-4 grid lg:grid-cols-2 gap-8">
+              {/* Consultas por día */}
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-zinc-300 mb-3">Consultas por día</h3>
+                <SerieDiaria data={m.serie_diaria} />
+              </div>
+              {/* Sitios más escaneados */}
+              <RankTable
+                title="Sitios más escaneados"
+                head={["Sitio", "Escaneos", "Score prom."]}
+                rows={m.sitios_top.map((s) => [
+                  s.sitio,
+                  s.escaneos,
+                  s.score_promedio ?? "—",
+                ])}
+                empty="Aún no hay escaneos."
+              />
+              {/* Dominios de correo */}
               <RankTable
                 title="Dominios de correo más consultados"
                 head={["Dominio", "Consultas"]}
                 rows={m.top_dominios_email.map((d) => [d.dominio, d.consultas])}
                 empty="Aún no hay correos consultados."
               />
+              {/* Teléfonos por país */}
               <RankTable
                 title="Teléfonos por código de país"
                 head={["País", "Consultas"]}
@@ -367,19 +382,6 @@ export default async function MetricasPage({
                 empty="Aún no hay teléfonos consultados."
               />
             </div>
-
-            {/* Sitios top */}
-            <h2 className="mt-14 text-xl font-semibold tracking-tight">Sitios más escaneados</h2>
-            <RankTable
-              className="mt-4"
-              head={["Sitio", "Escaneos", "Score prom."]}
-              rows={m.sitios_top.map((s) => [
-                s.sitio,
-                s.escaneos,
-                s.score_promedio ?? "—",
-              ])}
-              empty="Aún no hay escaneos."
-            />
 
             {/* Visitas a /ip — geolocalización */}
             <div className="mt-16 flex items-center gap-2">
