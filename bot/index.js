@@ -778,6 +778,11 @@ async function handleMessage(sock, msg) {
   }
 }
 
+// Reconexión con backoff exponencial. Sin esto, una sesión caída dispara
+// miles de intentos contra WhatsApp y provoca que bloqueen el emparejamiento.
+const MAX_RECONNECT_ATTEMPTS = 10;
+let reconnectAttempts = 0;
+
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
@@ -801,10 +806,30 @@ async function start() {
     }
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = code !== DisconnectReason.loggedOut;
-      console.log(`⚠️  Conexión cerrada (code ${code}). Reconectar: ${shouldReconnect}`);
-      if (shouldReconnect) start();
+
+      // Caso terminal: WhatsApp cerró la sesión. Reintentar es inútil y abusivo.
+      if (code === DisconnectReason.loggedOut) {
+        console.error('❌ Sesión cerrada desde WhatsApp (401). Se requiere revincular:');
+        console.error('   cd bot && node link.js   (luego: pm2 restart sabuezo-bot)');
+        console.error('   El bot se detiene para no saturar a WhatsApp.');
+        process.exit(0);
+      }
+
+      reconnectAttempts += 1;
+      if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+        console.error(`❌ ${MAX_RECONNECT_ATTEMPTS} reconexiones fallidas seguidas. Me detengo.`);
+        process.exit(0);
+      }
+
+      const delayMs = Math.min(60000, 2000 * 2 ** (reconnectAttempts - 1));
+      console.log(
+        `⚠️  Conexión cerrada (code ${code}). Reintento ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} en ${delayMs / 1000}s`
+      );
+      setTimeout(() => {
+        start().catch((e) => console.error('Fallo al reconectar:', e));
+      }, delayMs);
     } else if (connection === 'open') {
+      reconnectAttempts = 0;
       console.log('✅ Sabuezo conectado a WhatsApp');
     }
   });
