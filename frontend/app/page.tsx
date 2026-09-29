@@ -128,10 +128,10 @@ export default async function HomePage() {
 
               {/* Revisiones de filtraciones — la acción principal */}
               <div className="mt-8 sm:mt-10 grid grid-cols-2 gap-3 max-w-2xl">
-                <CheckCard href="/filtraciones?tipo=correo" icon={<Mail className="size-[18px]" />} label="Revisa tu correo" short="Correo" />
-                <CheckCard href="/filtraciones?tipo=numero" icon={<Phone className="size-[18px]" />} label="Revisa tu número" short="Número" />
-                <CheckCard href="/filtraciones?tipo=contraseña" icon={<KeyRound className="size-[18px]" />} label="Revisa tu contraseña" short="Contraseña" />
-                <CheckCard href="/ip" icon={<Wifi className="size-[18px]" />} label="Revisa tu IP" short="Mi IP" prefetch={false} />
+                <CheckCard href="/filtraciones?tipo=correo" icon={<Mail className="size-[18px] text-sky-400" />} label="Revisa tu correo" short="Correo" />
+                <CheckCard href="/filtraciones?tipo=numero" icon={<Phone className="size-[18px] text-violet-400" />} label="Revisa tu número" short="Número" />
+                <CheckCard href="/filtraciones?tipo=contraseña" icon={<KeyRound className="size-[18px] text-rose-400" />} label="Revisa tu contraseña" short="Contraseña" />
+                <CheckCard href="/ip" icon={<Wifi className="size-[18px] text-cyan-300" />} label="Revisa tu IP" short="Mi IP" prefetch={false} />
               </div>
 
               {/* Acciones secundarias — WhatsApp al final */}
@@ -533,7 +533,7 @@ function CheckCard({
       prefetch={prefetch}
       className="group rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-400/70 transition pl-1.5 pr-4 py-1.5 flex items-center gap-3"
     >
-      <span className="shrink-0 grid place-items-center size-9 rounded-full bg-amber-500 text-black group-hover:bg-amber-400 transition">
+      <span className="shrink-0 grid place-items-center size-9 rounded-full bg-black ring-1 ring-white/10 group-hover:ring-white/20 transition">
         {icon}
       </span>
       <span className="text-sm font-medium text-amber-50 whitespace-nowrap">
