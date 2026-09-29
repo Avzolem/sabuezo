@@ -51,17 +51,22 @@ const COUNTRY_GRID = [
 async function getStats() {
   try {
     const supabase = getSupabaseAdmin();
-    const [{ count: pymes }, { count: dets }, { count: rojos }] = await Promise.all([
-      supabase.from("pymes").select("*", { count: "exact", head: true }),
-      supabase.from("phishing_detections").select("*", { count: "exact", head: true }),
-      supabase
-        .from("phishing_detections")
-        .select("*", { count: "exact", head: true })
-        .eq("risk", "rojo"),
-    ]);
-    return { pymes: pymes ?? 0, dets: dets ?? 0, rojos: rojos ?? 0 };
+    const checks = () => supabase.from("breach_checks").select("*", { count: "exact", head: true });
+    const [{ count: correos }, { count: numeros }, { count: sitios }, { count: filtrados }] =
+      await Promise.all([
+        checks().eq("kind", "email"),
+        checks().eq("kind", "phone"),
+        supabase.from("scans").select("*", { count: "exact", head: true }),
+        checks().eq("found", true),
+      ]);
+    return {
+      correos: correos ?? 0,
+      numeros: numeros ?? 0,
+      sitios: sitios ?? 0,
+      filtrados: filtrados ?? 0,
+    };
   } catch {
-    return { pymes: 0, dets: 0, rojos: 0 };
+    return { correos: 0, numeros: 0, sitios: 0, filtrados: 0 };
   }
 }
 
@@ -111,11 +116,9 @@ export default async function HomePage() {
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 mb-5 sm:mb-6">
                 <Sparkles className="size-3" /> Democratizando la ciberseguridad para Latinoamérica
               </div>
-              <h1 className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tighter text-white leading-[1.05]">
-                El <span className="text-amber-400">Sabuezo</span> que olfatea
-                <br className="hidden sm:inline" />
-                <span className="sm:hidden"> </span>
-                estafas por tu negocio.
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tighter text-white leading-[1.05]">
+                ¿Quieres saber si tus datos andan sueltos por internet?{" "}
+                <span className="text-amber-400">Sabuezo</span> los rastrea.
               </h1>
               <p className="mt-5 sm:mt-6 text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl leading-relaxed">
                 Reenvía cualquier mensaje sospechoso, correo de proveedor raro o screenshot
@@ -168,10 +171,11 @@ export default async function HomePage() {
               </div>
 
               {/* Stats */}
-              <div className="mt-12 sm:mt-16 grid grid-cols-3 gap-3 sm:gap-6 max-w-2xl">
-                <Stat label="PyMEs protegidas" value={stats.pymes} />
-                <Stat label="Mensajes analizados" value={stats.dets} />
-                <Stat label="Estafas bloqueadas" value={stats.rojos} accent />
+              <div className="mt-12 sm:mt-16 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-6 sm:gap-6 max-w-2xl">
+                <Stat label="Correos revisados" value={stats.correos} />
+                <Stat label="Números revisados" value={stats.numeros} />
+                <Stat label="Sitios escaneados" value={stats.sitios} />
+                <Stat label="Filtraciones encontradas" value={stats.filtrados} accent />
               </div>
 
               {/* Badge en mobile — en lg+ va encima del perro */}
