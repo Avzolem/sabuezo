@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LATAM_PATHS } from "@/lib/latam-map";
-import { Shield, MessageCircleWarning, Globe, Sparkles, Database, BarChart3, Mail, Phone, KeyRound, Wifi, ScanSearch, MessageCircle, ArrowUpRight } from "lucide-react";
+import { Shield, MessageCircleWarning, Globe, Sparkles, Database, BarChart3, Mail, Phone, KeyRound, Wifi, ScanSearch, MessageCircle, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -127,11 +127,11 @@ export default async function HomePage() {
               </p>
 
               {/* Revisiones de filtraciones — la acción principal */}
-              <div className="mt-8 sm:mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl">
-                <CheckCard href="/filtraciones?tipo=correo" icon={<Mail className="size-5" />} label="correo" />
-                <CheckCard href="/filtraciones?tipo=numero" icon={<Phone className="size-5" />} label="número" />
-                <CheckCard href="/filtraciones?tipo=contraseña" icon={<KeyRound className="size-5" />} label="contraseña" />
-                <CheckCard href="/ip" icon={<Wifi className="size-5" />} label="IP" prefetch={false} />
+              <div className="mt-8 sm:mt-10 grid grid-cols-2 gap-3 max-w-2xl">
+                <CheckCard href="/filtraciones?tipo=correo" icon={<Mail className="size-[18px]" />} label="Revisa tu correo" short="Correo" />
+                <CheckCard href="/filtraciones?tipo=numero" icon={<Phone className="size-[18px]" />} label="Revisa tu número" short="Número" />
+                <CheckCard href="/filtraciones?tipo=contraseña" icon={<KeyRound className="size-[18px]" />} label="Revisa tu contraseña" short="Contraseña" />
+                <CheckCard href="/ip" icon={<Wifi className="size-[18px]" />} label="Revisa tu IP" short="Mi IP" prefetch={false} />
               </div>
 
               {/* Acciones secundarias — WhatsApp al final */}
@@ -518,27 +518,29 @@ function CheckCard({
   href,
   icon,
   label,
+  short,
   prefetch,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
+  short: string;
   prefetch?: boolean;
 }) {
   return (
     <Link
       href={href}
       prefetch={prefetch}
-      className="group rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/50 transition p-4 flex flex-col gap-4"
+      className="group rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-400/70 transition pl-1.5 pr-4 py-1.5 flex items-center gap-3"
     >
-      <span className="flex items-center justify-between text-amber-300">
+      <span className="shrink-0 grid place-items-center size-9 rounded-full bg-amber-500 text-black group-hover:bg-amber-400 transition">
         {icon}
-        <ArrowUpRight className="size-4 text-amber-300/60 transition group-hover:text-amber-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
       </span>
-      <span className="leading-tight">
-        <span className="block text-xs text-amber-200/70">Revisa tu</span>
-        <span className="block text-base font-semibold text-white">{label}</span>
+      <span className="text-sm font-medium text-amber-50 whitespace-nowrap">
+        <span className="sm:hidden">{short}</span>
+        <span className="hidden sm:inline">{label}</span>
       </span>
+      <ArrowRight className="ml-auto size-4 shrink-0 text-amber-300/70 transition group-hover:text-amber-200 group-hover:translate-x-0.5" />
     </Link>
   );
 }
