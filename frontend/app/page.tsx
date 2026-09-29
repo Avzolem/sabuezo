@@ -179,16 +179,19 @@ export default async function HomePage() {
             </div>
 
             {/* Hero mascot — solo en lg+ */}
-            <div className="hidden lg:flex flex-col justify-center items-center gap-8">
-              <SpacerrBadge />
-              <Image
-                src="/sabuezo-hero.webp"
-                alt=""
-                width={340}
-                height={275}
-                priority
-                className="w-[340px] h-auto"
-              />
+            <div className="hidden lg:flex flex-col items-center self-stretch">
+              {/* Badge alineado con la pastilla "Democratizando..." */}
+              <SpacerrBadge className="-mt-3.5" />
+              <div className="flex-1 flex items-center">
+                <Image
+                  src="/sabuezo-hero.webp"
+                  alt=""
+                  width={340}
+                  height={275}
+                  priority
+                  className="w-[340px] h-auto"
+                />
+              </div>
             </div>
           </div>
         </div>
