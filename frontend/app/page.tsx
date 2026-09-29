@@ -101,12 +101,12 @@ export default async function HomePage() {
               <a href="#por-que" className="hover:text-white transition">¿Por qué?</a>
               <Link href="/pitch" className="hover:text-white transition">Pitch</Link>
             </nav>
-            <a
-              href={waNumber ? `https://wa.me/${waNumber}?text=hola` : "#"}
+            <Link
+              href="/filtraciones?tipo=correo"
               className="rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap"
             >
               Empezar
-            </a>
+            </Link>
           </div>
         </header>
 
