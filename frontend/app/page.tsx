@@ -174,24 +174,13 @@ export default async function HomePage() {
                 <Stat label="Estafas bloqueadas" value={stats.rojos} accent />
               </div>
 
-              <a
-                href="https://spacerrapps.com/apps/sabuezo?utm_source=badge&utm_medium=referral&utm_campaign=featured"
-                target="_blank"
-                rel="noopener"
-                className="mt-10 inline-block opacity-90 hover:opacity-100 transition"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://spacerrapps.com/badge/sabuezo.svg?v=3&theme=dark"
-                  alt="Sabuezo is featured on SpacerrApps"
-                  width={234}
-                  height={54}
-                />
-              </a>
+              {/* Badge en mobile — en lg+ va encima del perro */}
+              <SpacerrBadge className="mt-10 lg:hidden" />
             </div>
 
             {/* Hero mascot — solo en lg+ */}
-            <div className="hidden lg:flex justify-center items-center">
+            <div className="hidden lg:flex flex-col justify-center items-center gap-8">
+              <SpacerrBadge />
               <Image
                 src="/sabuezo-hero.webp"
                 alt=""
@@ -514,6 +503,25 @@ function LatamMap({ small = false }: { small?: boolean }) {
         })}
       </svg>
     </div>
+  );
+}
+
+function SpacerrBadge({ className = "" }: { className?: string }) {
+  return (
+    <a
+      href="https://spacerrapps.com/apps/sabuezo?utm_source=badge&utm_medium=referral&utm_campaign=featured"
+      target="_blank"
+      rel="noopener"
+      className={`inline-block opacity-90 hover:opacity-100 transition ${className}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="https://spacerrapps.com/badge/sabuezo.svg?v=3&theme=dark"
+        alt="Sabuezo is featured on SpacerrApps"
+        width={234}
+        height={54}
+      />
+    </a>
   );
 }
 
