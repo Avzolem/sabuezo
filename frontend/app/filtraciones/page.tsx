@@ -15,6 +15,7 @@ import {
   Lightbulb,
   KeyRound,
   ShieldCheck,
+  MessageCircle,
 } from "lucide-react";
 
 type EmailResult = {
@@ -170,14 +171,10 @@ export default function FiltracionesPage() {
             <Image src="/sabuezo-logo.webp" alt="Sabuezo" width={28} height={28} className="size-7" />
             <span className="font-semibold">Sabuezo</span>
           </Link>
-          {waNumber && (
-            <a
-              href={`https://wa.me/${waNumber}?text=hola`}
-              className="rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap"
-            >
-              Empezar por WhatsApp
-            </a>
-          )}
+          <nav className="flex items-center gap-4 sm:gap-6 text-sm text-zinc-400">
+            <Link href="/escanear" className="hover:text-white transition whitespace-nowrap">Escanear sitio</Link>
+            <Link href="/ip" prefetch={false} className="hover:text-white transition whitespace-nowrap">Mi IP</Link>
+          </nav>
         </div>
       </header>
 
@@ -306,18 +303,19 @@ export default function FiltracionesPage() {
         {/* CTA bottom */}
         <div className="mt-12 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent p-6 sm:p-8">
           <h3 className="text-lg sm:text-xl font-semibold text-white">
-            ¿Y si quieres que te avise cada vez que aparezcas en una nueva fuga?
+            ¿Te llegó un mensaje sospechoso?
           </h3>
           <p className="mt-2 text-zinc-300 leading-relaxed">
-            Registra tu PyME por WhatsApp y Sabuezo monitorea tu correo, tu número y tu sitio en
-            automático. Te avisamos en cuanto algo cambie.
+            Reenvíaselo al bot de Sabuezo por WhatsApp y te dice en segundos si es estafa. También
+            puedes revisar correos y números directo desde el chat.
           </p>
           {waNumber && (
             <a
-              href={`https://wa.me/${waNumber}?text=registrar`}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-5 py-2.5 text-sm font-medium"
+              href={`https://wa.me/${waNumber}?text=hola`}
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/60 hover:border-zinc-600 hover:bg-zinc-900 transition text-zinc-200 px-5 py-2.5 text-sm font-medium"
             >
-              Registrar mi PyME por WhatsApp
+              <MessageCircle className="size-4 text-emerald-400" />
+              Habla con el bot de WhatsApp
             </a>
           )}
         </div>
