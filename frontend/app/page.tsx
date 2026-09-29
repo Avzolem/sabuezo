@@ -173,6 +173,21 @@ export default async function HomePage() {
                 <Stat label="Mensajes analizados" value={stats.dets} />
                 <Stat label="Estafas bloqueadas" value={stats.rojos} accent />
               </div>
+
+              <a
+                href="https://spacerrapps.com/apps/sabuezo?utm_source=badge&utm_medium=referral&utm_campaign=featured"
+                target="_blank"
+                rel="noopener"
+                className="mt-10 inline-block opacity-90 hover:opacity-100 transition"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://spacerrapps.com/badge/sabuezo.svg?v=3&theme=dark"
+                  alt="Sabuezo is featured on SpacerrApps"
+                  width={234}
+                  height={54}
+                />
+              </a>
             </div>
 
             {/* Hero mascot — solo en lg+ */}
