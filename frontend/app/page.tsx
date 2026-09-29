@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { LATAM_PATHS } from "@/lib/latam-map";
-import { Shield, MessageCircleWarning, Globe, ArrowRight, Sparkles, Database, BarChart3 } from "lucide-react";
+import { Shield, MessageCircleWarning, Globe, Sparkles, Database, BarChart3, Mail, Phone, KeyRound, Wifi, ScanSearch, MessageCircle, ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -126,48 +126,30 @@ export default async function HomePage() {
                 escanea tu sitio web por puertas abiertas que los criminales aprovechan.
               </p>
 
-              <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
-                <a
-                  href={waNumber ? `https://wa.me/${waNumber}?text=hola` : "#"}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-6 py-3 font-medium"
-                >
-                  Empieza por WhatsApp
-                  <ArrowRight className="size-4" />
-                </a>
-                <Link
-                  href="/escanear"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition px-6 py-3 text-amber-200"
-                >
-                  Escanea tu sitio →
-                </Link>
+              {/* Revisiones de filtraciones — la acción principal */}
+              <div className="mt-8 sm:mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl">
+                <CheckCard href="/filtraciones?tipo=correo" icon={<Mail className="size-5" />} label="correo" />
+                <CheckCard href="/filtraciones?tipo=numero" icon={<Phone className="size-5" />} label="número" />
+                <CheckCard href="/filtraciones?tipo=contraseña" icon={<KeyRound className="size-5" />} label="contraseña" />
+                <CheckCard href="/ip" icon={<Wifi className="size-5" />} label="IP" prefetch={false} />
               </div>
 
-              <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row flex-wrap gap-3">
+              {/* Acciones secundarias — WhatsApp al final */}
+              <div className="mt-3 flex flex-col sm:flex-row gap-3 max-w-2xl">
                 <Link
-                  href="/filtraciones?tipo=correo"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition px-5 py-2.5 text-sm text-amber-200"
+                  href="/escanear"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 hover:bg-zinc-900 transition px-5 py-3 text-sm text-zinc-200"
                 >
-                  📧 Revisa tu correo
+                  <ScanSearch className="size-4 text-amber-300" />
+                  Escanea tu sitio web
                 </Link>
-                <Link
-                  href="/filtraciones?tipo=numero"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition px-5 py-2.5 text-sm text-amber-200"
+                <a
+                  href={waNumber ? `https://wa.me/${waNumber}?text=hola` : "#"}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 hover:bg-zinc-900 transition px-5 py-3 text-sm text-zinc-200"
                 >
-                  📱 Revisa tu número
-                </Link>
-                <Link
-                  href="/filtraciones?tipo=contraseña"
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition px-5 py-2.5 text-sm text-amber-200"
-                >
-                  🔑 Revisa tu contraseña
-                </Link>
-                <Link
-                  href="/ip"
-                  prefetch={false}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition px-5 py-2.5 text-sm text-amber-200"
-                >
-                  🌐 Revisa tu IP
-                </Link>
+                  <MessageCircle className="size-4 text-emerald-400" />
+                  Habla con el bot de WhatsApp
+                </a>
               </div>
 
               {/* Stats */}
@@ -529,6 +511,35 @@ function SpacerrBadge({ className = "" }: { className?: string }) {
         height={54}
       />
     </a>
+  );
+}
+
+function CheckCard({
+  href,
+  icon,
+  label,
+  prefetch,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  prefetch?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch={prefetch}
+      className="group rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500/50 transition p-4 flex flex-col gap-4"
+    >
+      <span className="flex items-center justify-between text-amber-300">
+        {icon}
+        <ArrowUpRight className="size-4 text-amber-300/60 transition group-hover:text-amber-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+      </span>
+      <span className="leading-tight">
+        <span className="block text-xs text-amber-200/70">Revisa tu</span>
+        <span className="block text-base font-semibold text-white">{label}</span>
+      </span>
+    </Link>
   );
 }
 
