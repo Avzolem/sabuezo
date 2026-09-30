@@ -212,7 +212,7 @@ export default function FiltracionesPage() {
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <Phone className="size-4" /> Número<span className="hidden sm:inline"> celular</span>
+            <Phone className="size-4" /> <span>Número<span className="hidden sm:inline"> celular</span></span>
           </button>
           <button
             type="button"
