@@ -1,16 +1,23 @@
 import type { Metadata } from "next";
+import { Geist } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Sabuezo — Democratizando la ciberseguridad para Latinoamérica",
+  title: "Sabuezo — ¿Tus datos andan sueltos por internet?",
   description:
-    "Bot WhatsApp + escaneo de seguridad para las 32M de PyMEs de LATAM. Detecta phishing, suplantación de bancos y agencias tributarias, fraude del proveedor y vulnerabilidades web.",
+    "Revisa gratis si tu correo, número o contraseña aparecen en filtraciones públicas. Sin registrarte. Sabuezo también escanea la seguridad de tu sitio web y detecta estafas por WhatsApp.",
   metadataBase: new URL("https://sabuezo.com"),
   openGraph: {
-    title: "Sabuezo 🐕 — Anti-estafa para PyMEs de LATAM",
+    title: "Sabuezo — ¿Tus datos andan sueltos por internet?",
     description:
-      "Democratizando la ciberseguridad para Latinoamérica. Bot WhatsApp + diagnóstico de seguridad para PyMEs.",
+      "Revisa gratis si tu correo, número o contraseña aparecen en filtraciones públicas. Sin registrarte.",
     url: "https://sabuezo.com",
     siteName: "Sabuezo",
     locale: "es",
@@ -18,14 +25,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sabuezo 🐕 — Anti-estafa para PyMEs de LATAM",
-    description: "Democratizando la ciberseguridad para Latinoamérica.",
+    title: "Sabuezo — ¿Tus datos andan sueltos por internet?",
+    description: "Revisa gratis si tu correo, número o contraseña aparecen en filtraciones públicas.",
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" className={geist.variable}>
       <body>
         {children}
         <Analytics />

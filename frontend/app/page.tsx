@@ -3,6 +3,7 @@ import { LATAM_PATHS } from "@/lib/latam-map";
 import { Shield, MessageCircleWarning, Globe, Sparkles, Database, BarChart3, Mail, Phone, KeyRound, Wifi, ScanSearch, MessageCircle, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import Flag, { type FlagCode } from "@/components/Flag";
 
 export const dynamic = "force-dynamic";
 
@@ -36,16 +37,16 @@ const CONNECTIONS: [number, number][] = [
 ];
 
 const COUNTRY_GRID = [
-  { flag: "🇲🇽", name: "México" },
-  { flag: "🇨🇴", name: "Colombia" },
-  { flag: "🇦🇷", name: "Argentina" },
-  { flag: "🇨🇱", name: "Chile" },
-  { flag: "🇵🇪", name: "Perú" },
-  { flag: "🇪🇨", name: "Ecuador" },
-  { flag: "🇺🇾", name: "Uruguay" },
-  { flag: "🇨🇷", name: "Costa Rica" },
-  { flag: "🇵🇦", name: "Panamá" },
-  { flag: "🇩🇴", name: "Rep. Dom." },
+  { flag: "MX" as FlagCode, name: "México" },
+  { flag: "CO" as FlagCode, name: "Colombia" },
+  { flag: "AR" as FlagCode, name: "Argentina" },
+  { flag: "CL" as FlagCode, name: "Chile" },
+  { flag: "PE" as FlagCode, name: "Perú" },
+  { flag: "EC" as FlagCode, name: "Ecuador" },
+  { flag: "UY" as FlagCode, name: "Uruguay" },
+  { flag: "CR" as FlagCode, name: "Costa Rica" },
+  { flag: "PA" as FlagCode, name: "Panamá" },
+  { flag: "DO" as FlagCode, name: "Rep. Dom." },
 ];
 
 async function getStats() {
@@ -99,7 +100,6 @@ export default async function HomePage() {
               <Link href="/ip" prefetch={false} className="hover:text-white transition">Mi IP</Link>
               <a href="#como-funciona" className="hover:text-white transition">¿Cómo funciona?</a>
               <a href="#por-que" className="hover:text-white transition">¿Por qué?</a>
-              <Link href="/pitch" className="hover:text-white transition">Pitch</Link>
             </nav>
             <Link
               href="/filtraciones?tipo=correo"
@@ -193,7 +193,20 @@ export default async function HomePage() {
             entre sí.
           </p>
 
-          <div className="mt-10 sm:mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="mt-10 sm:mt-12 grid md:grid-cols-2 gap-4 sm:gap-6">
+            <FeatureCard
+              featured
+              icon={<Database className="size-6" />}
+              title="¿Tu correo, número o contraseña está filtrado?"
+              desc="Te cruzo contra millones de filtraciones públicas (Yahoo, LinkedIn, Adobe, Instagram, fugas regionales en LATAM). Si tu dato está expuesto, te digo dónde y qué hacer."
+              points={[
+                "Chequeo de correos contra breaches conocidos",
+                "Chequeo de números celulares en fugas públicas",
+                "Chequeo de contraseñas sin que salgan de tu dispositivo",
+                "Plan de mitigación: 2FA, contraseñas, alertas",
+              ]}
+              cta={{ href: "/filtraciones", label: "Revisa tus datos" }}
+            />
             <FeatureCard
               icon={<MessageCircleWarning className="size-6" />}
               title="Detector de phishing por WhatsApp"
@@ -212,16 +225,6 @@ export default async function HomePage() {
                 "Detecta puertas abiertas en tu web",
                 "Plan de acción priorizado y con tiempos",
                 "Score 0-100 que puedes mostrar a tu equipo",
-              ]}
-            />
-            <FeatureCard
-              icon={<Database className="size-6" />}
-              title="¿Tu correo o número está filtrado?"
-              desc="Te cruzo contra millones de filtraciones públicas (Yahoo, LinkedIn, Adobe, Instagram, fugas regionales en LATAM). Si tu dato está expuesto, te digo dónde y qué hacer."
-              points={[
-                "Chequeo de correos contra breaches conocidos",
-                "Chequeo de números celulares en fugas públicas",
-                "Plan de mitigación: 2FA, contraseñas, alertas",
               ]}
             />
           </div>
@@ -273,7 +276,7 @@ export default async function HomePage() {
                     key={c.name}
                     className="rounded-xl border border-zinc-800 bg-zinc-900/40 hover:border-amber-500/40 hover:bg-zinc-900/70 transition px-3 py-2.5 flex items-center gap-3"
                   >
-                    <span className="text-xl sm:text-2xl">{c.flag}</span>
+                    <Flag code={c.flag} className="text-xl sm:text-2xl" />
                     <div>
                       <div className="text-sm font-medium text-white">{c.name}</div>
                       <div className="text-[10px] text-emerald-300/80 flex items-center gap-1.5">
@@ -321,9 +324,9 @@ export default async function HomePage() {
               </p>
             </div>
             <div className="space-y-4">
-              <Quote text="Casi le hago el depósito al 'proveedor nuevo'. Lo reenvié a Sabuezo y me dijo en 3 segundos que era fraude de cambio de cuenta." author="Dueño de imprenta · CDMX, México 🇲🇽" />
-              <Quote text="Llegó un correo del banco pidiéndome confirmar datos. Sabuezo me dijo que era phishing y por qué. Salvó mi negocio." author="Dueña de cafetería · Bogotá, Colombia 🇨🇴" />
-              <Quote text="Mi DMARC estaba mal y yo ni sabía qué era eso. Sabuezo me lo arregló con 2 líneas." author="Dueño de estudio contable · Buenos Aires, Argentina 🇦🇷" />
+              <Quote text="Casi le hago el depósito al 'proveedor nuevo'. Lo reenvié a Sabuezo y me dijo en 3 segundos que era fraude de cambio de cuenta." author="Dueño de imprenta · CDMX, México" country="MX" />
+              <Quote text="Llegó un correo del banco pidiéndome confirmar datos. Sabuezo me dijo que era phishing y por qué. Salvó mi negocio." author="Dueña de cafetería · Bogotá, Colombia" country="CO" />
+              <Quote text="Mi DMARC estaba mal y yo ni sabía qué era eso. Sabuezo me lo arregló con 2 líneas." author="Dueño de estudio contable · Buenos Aires, Argentina" country="AR" />
             </div>
           </div>
         </div>
@@ -572,20 +575,41 @@ function FeatureCard({
   title,
   desc,
   points,
+  featured = false,
+  cta,
 }: {
   icon: React.ReactNode;
   title: string;
   desc: string;
   points: string[];
+  featured?: boolean;
+  cta?: { href: string; label: string };
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-8 hover:border-zinc-700 transition">
-      <div className="rounded-xl bg-zinc-800/60 inline-flex p-3 text-amber-300">{icon}</div>
-      <h3 className="mt-5 text-xl font-semibold text-white">{title}</h3>
-      <p className="mt-2 text-zinc-400 leading-relaxed">{desc}</p>
-      <ul className="mt-4 space-y-2">
+    <div
+      className={
+        featured
+          ? "md:col-span-2 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent p-8 grid md:grid-cols-[1.2fr_1fr] gap-6 md:gap-10 items-start"
+          : "rounded-2xl border border-zinc-800 bg-zinc-900/30 p-8 hover:border-zinc-700 transition"
+      }
+    >
+      <div>
+        <div className={`rounded-xl inline-flex p-3 text-amber-300 ${featured ? "bg-amber-500/20" : "bg-zinc-800/60"}`}>{icon}</div>
+        <h3 className={`mt-5 font-semibold tracking-tight text-white ${featured ? "text-2xl" : "text-xl"}`}>{title}</h3>
+        <p className="mt-2 text-zinc-400 leading-relaxed">{desc}</p>
+        {cta && (
+          <Link
+            href={cta.href}
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-amber-500 hover:bg-amber-400 transition text-black px-5 py-2.5 text-sm font-medium"
+          >
+            {cta.label}
+            <ArrowRight className="size-4" />
+          </Link>
+        )}
+      </div>
+      <ul className={`space-y-2 ${featured ? "md:mt-2" : "mt-4"}`}>
         {points.map((p, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+          <li key={i} className={`flex items-start gap-2 text-zinc-300 ${featured ? "text-[15px]" : "text-sm"}`}>
             <span className="text-amber-400 mt-0.5">→</span>
             <span>{p}</span>
           </li>
@@ -595,11 +619,14 @@ function FeatureCard({
   );
 }
 
-function Quote({ text, author }: { text: string; author: string }) {
+function Quote({ text, author, country }: { text: string; author: string; country?: FlagCode }) {
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
       <p className="text-zinc-200 leading-relaxed">&ldquo;{text}&rdquo;</p>
-      <div className="mt-3 text-xs text-zinc-500 uppercase tracking-wider">— {author}</div>
+      <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500 uppercase tracking-wider">
+        — {author}
+        {country && <Flag code={country} className="text-sm" />}
+      </div>
     </div>
   );
 }

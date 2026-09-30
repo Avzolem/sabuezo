@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import Flag, { type FlagCode } from "@/components/Flag";
 import { LATAM_PATHS } from "@/lib/latam-map";
 import {
   ChevronLeft,
@@ -388,9 +389,9 @@ function Slide6() {
           </p>
 
           <div className="mt-10 grid grid-cols-3 gap-3 max-w-md">
-            {["🇲🇽","🇨🇴","🇦🇷","🇨🇱","🇵🇪","🇪🇨","🇺🇾","🇨🇷","🇵🇦","🇩🇴"].map((flag, idx) => (
+            {(["MX", "CO", "AR", "CL", "PE", "EC", "UY", "CR", "PA", "DO"] as FlagCode[]).map((flag, idx) => (
               <div key={idx} className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
-                <span className="text-2xl">{flag}</span>
+                <Flag code={flag} className="text-2xl" />
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
               </div>
             ))}

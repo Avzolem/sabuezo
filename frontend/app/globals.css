@@ -17,12 +17,43 @@
   body {
     background: var(--color-background);
     color: var(--color-foreground);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
     background: var(--color-accent);
     color: black;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  /* Títulos sin palabras huérfanas */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Anillo de foco visible para navegación con teclado */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+  /* Respuesta táctil al presionar botones y enlaces tipo botón */
+  :where(button, a.rounded-full) {
+    transition-property: color, background-color, border-color, opacity, scale;
+    transition-duration: 150ms;
+  }
+  :where(button:not(:disabled), a.rounded-full):active {
+    scale: 0.97;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
 

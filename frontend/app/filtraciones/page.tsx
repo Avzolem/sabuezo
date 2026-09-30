@@ -189,11 +189,12 @@ export default function FiltracionesPage() {
         </p>
 
         {/* Tabs */}
-        <div className="mt-8 flex flex-wrap gap-2 p-1 rounded-full border border-zinc-800 bg-zinc-900/40 w-fit">
+        <div className="mt-8 grid grid-cols-3 sm:inline-flex gap-1 sm:gap-2 p-1 rounded-full border border-zinc-800 bg-zinc-900/40 w-full sm:w-fit">
           <button
             type="button"
             onClick={() => switchMode("email")}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
+            aria-pressed={mode === "email"}
+            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-4 py-2 text-sm transition whitespace-nowrap ${
               mode === "email"
                 ? "bg-amber-500 text-black font-medium"
                 : "text-zinc-400 hover:text-white"
@@ -204,18 +205,20 @@ export default function FiltracionesPage() {
           <button
             type="button"
             onClick={() => switchMode("phone")}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
+            aria-pressed={mode === "phone"}
+            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-4 py-2 text-sm transition whitespace-nowrap ${
               mode === "phone"
                 ? "bg-amber-500 text-black font-medium"
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <Phone className="size-4" /> Número celular
+            <Phone className="size-4" /> Número<span className="hidden sm:inline"> celular</span>
           </button>
           <button
             type="button"
             onClick={() => switchMode("password")}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition ${
+            aria-pressed={mode === "password"}
+            className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-4 py-2 text-sm transition whitespace-nowrap ${
               mode === "password"
                 ? "bg-amber-500 text-black font-medium"
                 : "text-zinc-400 hover:text-white"
