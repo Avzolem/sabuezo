@@ -121,9 +121,8 @@ export default async function HomePage() {
                 <span className="text-amber-400">Sabuezo</span> los rastrea.
               </h1>
               <p className="mt-5 sm:mt-6 text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl leading-relaxed">
-                Reenvía cualquier mensaje sospechoso, correo de proveedor raro o screenshot
-                de WhatsApp a Sabuezo. Te dice si es estafa en segundos. Mientras tanto,
-                escanea tu sitio web por puertas abiertas que los criminales aprovechan.
+                Escribe tu correo, número o contraseña y te decimos si apareció en alguna
+                filtración pública. Gratis y sin registrarte.
               </p>
 
               {/* Revisiones de filtraciones — la acción principal */}
