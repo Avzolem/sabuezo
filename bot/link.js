@@ -56,6 +56,12 @@ async function start() {
     }
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
+      // 515 (restart required) llega justo después de escanear el QR: la
+      // vinculación ya quedó guardada en ./auth, solo falta arrancar el bot.
+      if (code === 515 && sock.authState.creds.me) {
+        console.log('\nVINCULADO_OK id=' + sock.authState.creds.me.id + ' (falta: pm2 restart sabuezo-bot)');
+        process.exit(0);
+      }
       console.log('CONEXION_CERRADA code=' + code);
       if (code !== 401) process.exit(1);
       process.exit(2);

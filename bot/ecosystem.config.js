@@ -13,6 +13,9 @@ module.exports = {
       exp_backoff_restart_delay: 5000,
       max_restarts: 10,
       min_uptime: 60000,
+      // Fecha y hora en cada línea del log: sin esto no hay forma de saber
+      // cuándo se cayó la conexión o cuándo llegó un mensaje.
+      time: true,
     },
   ],
 };
