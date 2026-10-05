@@ -643,7 +643,7 @@ export function ReportPDF({ scan }: { scan: ScanReport }) {
             sospechosos — te dice si es estafa al instante. Para PyMEs
             latinoamericanas, gratis.
           </Text>
-          <Text style={s.ctaPhone}>+52 1 614 216 6179</Text>
+          <Text style={s.ctaPhone}>+52 1 614 192 6973</Text>
           <Text style={s.ctaUrl}>sabuezo.com</Text>
         </View>
 

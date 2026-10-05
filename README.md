@@ -5,7 +5,7 @@
 > **Bot WhatsApp anti-fraude + diagnóstico de seguridad para PyMEs mexicanas.**
 
 🌐 **Live demo**: <https://sabuezo.com>
-📱 **Bot WhatsApp**: `+52 1 614 216 6179`
+📱 **Bot WhatsApp**: `+52 1 614 192 6973`
 🎯 **Track**: DEF/ACC · hack@latam 2026 · indies.la
 
 ---
