@@ -452,4 +452,7 @@ if __name__ == "__main__":
 
     port = int(os.getenv("BACKEND_PORT", "8787"))
     host = os.getenv("BACKEND_HOST", "0.0.0.0")
-    uvicorn.run("main:app", host=host, port=port, reload=True)
+    # El autoreload es solo para desarrollo (BACKEND_RELOAD=1). En producción
+    # PM2 es quien reinicia el proceso; ver ecosystem.config.js.
+    reload = os.getenv("BACKEND_RELOAD", "").lower() in ("1", "true", "yes")
+    uvicorn.run("main:app", host=host, port=port, reload=reload)

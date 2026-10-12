@@ -172,7 +172,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python main.py          # corre en :8787
+BACKEND_RELOAD=1 python main.py   # corre en :8787, con autoreload
 ```
 
 ### 4. Bot WhatsApp
@@ -197,6 +197,8 @@ npm run dev   # corre en :3000
 
 - **Bot + Backend**: corre en cualquier servidor Linux con `pm2`. Exponer backend vía Cloudflare Tunnel
   (`cloudflared tunnel --url http://localhost:8787`) o named tunnel para URL permanente.
+  Arranca cada proceso con su `ecosystem.config.js` y guarda la lista para que sobreviva a reinicios:
+  `pm2 start backend/ecosystem.config.js && pm2 start bot/ecosystem.config.js && pm2 save`.
 - **Frontend**: deploy a Vercel (`vercel --prod`). Configura env vars en el dashboard de Vercel
   incluyendo `INTERNAL_API_URL` (tunnel URL) e `INTERNAL_API_TOKEN`.
 
